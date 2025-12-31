@@ -43,10 +43,18 @@ func main() {
 		logrus.Fatal("PROXMOX_BASE_URL environment variable is required")
 	}
 
+	apiUser := os.Getenv("PROXMOX_API_USER")
+	if apiUser == "" {
+		logrus.Fatal("PROXMOX_API_USER environment variable is required")
+	}
+
 	apiToken := os.Getenv("PROXMOX_API_TOKEN")
 	if apiToken == "" {
 		logrus.Fatal("PROXMOX_API_TOKEN environment variable is required")
 	}
+
+	// Combine user and token into full API token format (user@realm!tokenid=secret)
+	fullApiToken := fmt.Sprintf("%s!%s", apiUser, apiToken)
 
 	// Check for SSL verification flag (default is to verify)
 	skipSSLVerify := os.Getenv("PROXMOX_SKIP_SSL_VERIFY") == "true"
@@ -54,7 +62,7 @@ func main() {
 		logrus.Warn("SSL verification disabled - only use for self-signed certificates")
 	}
 
-	proxmoxClient := proxmox.NewClient(baseURL, apiToken, skipSSLVerify)
+	proxmoxClient := proxmox.NewClient(baseURL, fullApiToken, skipSSLVerify)
 
 	// Initialize MCP server
 	server := mcp.NewServer(proxmoxClient)

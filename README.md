@@ -46,7 +46,8 @@ Then edit `.env` with your Proxmox credentials:
 
 ```bash
 PROXMOX_BASE_URL=https://your-proxmox-server.com:8006
-PROXMOX_API_TOKEN=user@realm!tokenid=token-secret-here
+PROXMOX_API_USER=root@pam
+PROXMOX_API_TOKEN=proxmox_mcp_token=your-token-secret-here
 PROXMOX_SKIP_SSL_VERIFY=false
 LOG_LEVEL=info
 ```
@@ -56,7 +57,11 @@ LOG_LEVEL=info
 1. Log in to Proxmox Web UI
 2. Go to Datacenter → Permissions → API Tokens
 3. Create a new API token with appropriate permissions
-4. The token format is: `user@realm!tokenid=secret`
+4. Note the username (e.g., `root@pam`) for `PROXMOX_API_USER`
+5. Note the token ID and secret (e.g., `tokenid=secret`) for `PROXMOX_API_TOKEN`
+   - The full token is combined as: `user@realm!tokenid=secret`
+   - `PROXMOX_API_USER`: The user part (e.g., `root@pam`)
+   - `PROXMOX_API_TOKEN`: The token ID and secret part (e.g., `tokenid=secret`)
 
 ### Running the Server
 
@@ -167,7 +172,8 @@ See [.github/skills](.github/skills) for detailed skill documentation.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PROXMOX_BASE_URL` | Proxmox server URL with port | Required |
-| `PROXMOX_API_TOKEN` | API token from Proxmox | Required |
+| `PROXMOX_API_USER` | Proxmox API user (e.g., root@pam) | Required |
+| `PROXMOX_API_TOKEN` | Proxmox API token (tokenid=secret) | Required |
 | `PROXMOX_SKIP_SSL_VERIFY` | Skip SSL certificate verification | false |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | info |
 
