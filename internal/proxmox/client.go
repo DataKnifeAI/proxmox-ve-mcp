@@ -244,6 +244,23 @@ func (c *Client) GetNode(ctx context.Context, nodeName string) (*NodeStatus, err
 	return &nodeStatus, nil
 }
 
+// GetClusterStatus retrieves cluster-wide status information
+func (c *Client) GetClusterStatus(ctx context.Context) (map[string]interface{}, error) {
+	data, err := c.doRequest(ctx, "GET", "cluster/status", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster status: %w", err)
+	}
+
+	var status map[string]interface{}
+	if jsonMap, ok := data.(map[string]interface{}); ok {
+		status = jsonMap
+	} else {
+		return nil, fmt.Errorf("invalid cluster status response format")
+	}
+
+	return status, nil
+}
+
 // GetVMs retrieves a list of VMs on a specific node
 func (c *Client) GetVMs(ctx context.Context, nodeName string) ([]VM, error) {
 	data, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/qemu", nodeName), nil)
@@ -439,6 +456,76 @@ func (c *Client) RebootContainer(ctx context.Context, nodeName string, container
 	return data, nil
 }
 
+// GetVMConfig returns the configuration of a specific VM
+func (c *Client) GetVMConfig(ctx context.Context, nodeName string, vmID int) (map[string]interface{}, error) {
+	data, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/qemu/%d/config", nodeName, vmID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VM config: %w", err)
+	}
+
+	var config map[string]interface{}
+	if jsonMap, ok := data.(map[string]interface{}); ok {
+		config = jsonMap
+	} else {
+		return nil, fmt.Errorf("invalid VM config response format")
+	}
+
+	return config, nil
+}
+
+// DeleteVM removes a virtual machine
+func (c *Client) DeleteVM(ctx context.Context, nodeName string, vmID int, force bool) (interface{}, error) {
+	body := map[string]interface{}{}
+	if force {
+		body["force"] = 1
+	}
+
+	return c.doRequest(ctx, "DELETE", fmt.Sprintf("nodes/%s/qemu/%d", nodeName, vmID), body)
+}
+
+// SuspendVM pauses a running VM without shutdown
+func (c *Client) SuspendVM(ctx context.Context, nodeName string, vmID int) (interface{}, error) {
+	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/qemu/%d/status/suspend", nodeName, vmID), nil)
+}
+
+// ResumeVM resumes a suspended VM
+func (c *Client) ResumeVM(ctx context.Context, nodeName string, vmID int) (interface{}, error) {
+	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/qemu/%d/status/resume", nodeName, vmID), nil)
+}
+
+// CreateVM creates a new virtual machine with the specified configuration
+func (c *Client) CreateVM(ctx context.Context, nodeName string, config map[string]interface{}) (interface{}, error) {
+	// Ensure vmid is present in the config
+	if _, ok := config["vmid"]; !ok {
+		return nil, fmt.Errorf("vmid is required in VM configuration")
+	}
+
+	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/qemu", nodeName), config)
+}
+
+// CreateVMFull creates a new VM with detailed configuration
+// Params: vmid, name, memory, cores, sockets, node, ide2 (ISO), sata0 (disk storage), net0 (network)
+func (c *Client) CreateVMFull(ctx context.Context, nodeName string, vmID int, name string, memory int, cores int, sockets int) (interface{}, error) {
+	config := map[string]interface{}{
+		"vmid":    vmID,
+		"name":    name,
+		"memory":  memory,
+		"cores":   cores,
+		"sockets": sockets,
+	}
+	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/qemu", nodeName), config)
+}
+
+// CloneVM clones an existing virtual machine
+func (c *Client) CloneVM(ctx context.Context, nodeName string, sourceVMID int, newVMID int, newName string, full bool) (interface{}, error) {
+	config := map[string]interface{}{
+		"vmid":   newVMID,
+		"name":   newName,
+		"full":   full,
+	}
+	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/qemu/%d/clone", nodeName, sourceVMID), config)
+}
+
 // ============ USER & ACCESS MANAGEMENT ============
 
 // User represents a Proxmox user
@@ -461,8 +548,9 @@ type Group struct {
 
 // Role represents a Proxmox role
 type Role struct {
-	RoleID string   `json:"roleid"`
-	Privs  []string `json:"privs,omitempty"`
+	RoleID  string `json:"roleid"`
+	Privs   string `json:"privs,omitempty"`
+	Special int    `json:"special,omitempty"`
 }
 
 // APIToken represents a Proxmox API token
@@ -617,9 +705,20 @@ func (c *Client) ListRoles(ctx context.Context) ([]Role, error) {
 
 // CreateRole creates a new role with specified privileges
 func (c *Client) CreateRole(ctx context.Context, roleID string, privs []string) (interface{}, error) {
+	// Convert privileges array to comma-separated string
+	privsStr := ""
+	if len(privs) > 0 {
+		for i, priv := range privs {
+			if i > 0 {
+				privsStr += ","
+			}
+			privsStr += priv
+		}
+	}
+
 	body := map[string]interface{}{
 		"roleid": roleID,
-		"privs":  privs,
+		"privs":  privsStr,
 	}
 
 	return c.doRequest(ctx, "POST", "access/roles", body)
@@ -746,24 +845,60 @@ func (c *Client) CreateContainerBackup(ctx context.Context, nodeName string, con
 	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/lxc/%d/backup", nodeName, containerID), body)
 }
 
-// ListBackups returns available backups in storage
+// ListBackups returns available backups in storage across all nodes
 func (c *Client) ListBackups(ctx context.Context, storage string) ([]Backup, error) {
-	data, err := c.doRequest(ctx, "GET", fmt.Sprintf("storage/%s/content", storage), nil)
+	// Get all nodes first
+	nodes, err := c.GetNodes(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get nodes: %v", err)
 	}
 
-	backups := []Backup{}
-	if err := c.unmarshalData(data, &backups); err != nil {
-		return nil, err
+	var allBackups []Backup
+
+	// Try to get backups from each node's storage
+	for _, node := range nodes {
+		data, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/storage/%s/content", node.Node, storage), nil)
+		if err != nil {
+			// Log error but continue with other nodes
+			c.logger.Warnf("Failed to list backups from node %s: %v", node.Node, err)
+			continue
+		}
+
+		backups := []Backup{}
+		if err := c.unmarshalData(data, &backups); err != nil {
+			c.logger.Warnf("Failed to unmarshal backups from node %s: %v", node.Node, err)
+			continue
+		}
+
+		allBackups = append(allBackups, backups...)
 	}
 
-	return backups, nil
+	return allBackups, nil
 }
 
-// DeleteBackup removes a backup file
+// DeleteBackup removes a backup file from a specific node's storage
 func (c *Client) DeleteBackup(ctx context.Context, storage, backupID string) (interface{}, error) {
-	return c.doRequest(ctx, "DELETE", fmt.Sprintf("storage/%s/content/%s", storage, backupID), nil)
+	// Get all nodes to find which one has the backup
+	nodes, err := c.GetNodes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nodes: %v", err)
+	}
+
+	var lastErr error
+
+	// Try to delete backup from each node
+	for _, node := range nodes {
+		result, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("nodes/%s/storage/%s/content/%s", node.Node, storage, backupID), nil)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+	}
+
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, fmt.Errorf("backup not found on any node")
 }
 
 // RestoreVMBackup restores a VM from a backup

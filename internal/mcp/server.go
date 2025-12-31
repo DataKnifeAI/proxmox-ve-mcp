@@ -56,6 +56,7 @@ func (s *Server) registerTools() {
 		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
 	})
 	addTool("get_cluster_resources", "Get all cluster resources (nodes, VMs, containers)", s.getClusterResources, map[string]any{})
+	addTool("get_cluster_status", "Get cluster-wide status information", s.getClusterStatus, map[string]any{})
 
 	// Storage Management
 	addTool("get_storage", "Get all storage devices in the cluster", s.getStorage, map[string]any{})
@@ -88,6 +89,49 @@ func (s *Server) registerTools() {
 	addTool("reboot_vm", "Reboot a virtual machine", s.rebootVM, map[string]any{
 		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
 		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
+	})
+	addTool("get_vm_config", "Get full configuration of a virtual machine", s.getVMConfig, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
+		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
+	})
+	addTool("delete_vm", "Delete a virtual machine", s.deleteVM, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
+		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
+		"force":     map[string]any{"type": "boolean", "description": "Force delete even if running (optional)"},
+	})
+	addTool("suspend_vm", "Suspend (pause) a virtual machine", s.suspendVM, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
+		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
+	})
+	addTool("resume_vm", "Resume a suspended virtual machine", s.resumeVM, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
+		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
+	})
+	addTool("create_vm", "Create a new virtual machine", s.createVM, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
+		"vmid":      map[string]any{"type": "integer", "description": "VM ID (must be unique)"},
+		"name":      map[string]any{"type": "string", "description": "VM name"},
+		"memory":    map[string]any{"type": "integer", "description": "Memory in MB (default: 512)"},
+		"cores":     map[string]any{"type": "integer", "description": "CPU cores (default: 1)"},
+		"sockets":   map[string]any{"type": "integer", "description": "CPU sockets (default: 1)"},
+	})
+	addTool("create_vm_advanced", "Create a VM with advanced configuration options", s.createVMAdvanced, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
+		"vmid":      map[string]any{"type": "integer", "description": "VM ID (must be unique)"},
+		"name":      map[string]any{"type": "string", "description": "VM name (optional)"},
+		"memory":    map[string]any{"type": "integer", "description": "Memory in MB (optional)"},
+		"cores":     map[string]any{"type": "integer", "description": "CPU cores (optional)"},
+		"sockets":   map[string]any{"type": "integer", "description": "CPU sockets (optional)"},
+		"ide2":      map[string]any{"type": "string", "description": "CD/DVD drive (e.g., /mnt/pve/iso/ubuntu.iso, optional)"},
+		"sata0":     map[string]any{"type": "string", "description": "Primary disk storage (e.g., local-lvm:10, optional)"},
+		"net0":      map[string]any{"type": "string", "description": "Network configuration (e.g., virtio,bridge=vmbr0, optional)"},
+	})
+	addTool("clone_vm", "Clone an existing virtual machine", s.cloneVM, map[string]any{
+		"node_name":   map[string]any{"type": "string", "description": "Name of the node"},
+		"source_vmid": map[string]any{"type": "integer", "description": "Source VM ID to clone from"},
+		"new_vmid":    map[string]any{"type": "integer", "description": "New VM ID (must be unique)"},
+		"new_name":    map[string]any{"type": "string", "description": "New VM name"},
+		"full":        map[string]any{"type": "boolean", "description": "Full clone (default: true) vs linked clone"},
 	})
 
 	// Container Management - Query
@@ -125,9 +169,6 @@ func (s *Server) registerTools() {
 	addTool("list_groups", "List all groups", s.listGroups, map[string]any{})
 	addTool("list_roles", "List all available roles and their privileges", s.listRoles, map[string]any{})
 	addTool("list_acl", "List all access control list entries", s.listACLs, map[string]any{})
-	addTool("list_api_tokens", "List API tokens for a specific user", s.listAPITokens, map[string]any{
-		"userid": map[string]any{"type": "string", "description": "User ID"},
-	})
 
 	// User Management - Control
 	addTool("create_user", "Create a new user", s.createUser, map[string]any{
@@ -223,7 +264,7 @@ func (s *Server) registerTools() {
 	for _, tool := range tools {
 		s.server.AddTool(tool.Tool, tool.Handler)
 	}
-	s.logger.Info("Registered 48 tools")
+	s.logger.Info("Registered 55 tools")
 }
 
 // ServeStdio starts the MCP server with stdio transport
@@ -408,6 +449,18 @@ func (s *Server) getClusterResources(ctx context.Context, request mcp.CallToolRe
 	return mcp.NewToolResultJSON(resources)
 }
 
+// getClusterStatus handles the get_cluster_status tool
+func (s *Server) getClusterStatus(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_cluster_status")
+
+	status, err := s.proxmoxClient.GetClusterStatus(ctx)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get cluster status: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(status)
+}
+
 // getStorage handles the get_storage tool
 func (s *Server) getStorage(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	s.logger.Debug("Tool called: get_storage")
@@ -549,6 +602,256 @@ func (s *Server) rebootVM(ctx context.Context, request mcp.CallToolRequest) (*mc
 		"vmid":   vmID,
 		"node":   nodeName,
 		"result": result,
+	})
+}
+
+// getVMConfig handles the get_vm_config tool
+func (s *Server) getVMConfig(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_vm_config")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	vmID := request.GetInt("vmid", 0)
+	if vmID <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+
+	config, err := s.proxmoxClient.GetVMConfig(ctx, nodeName, vmID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get VM config: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"vmid":   vmID,
+		"node":   nodeName,
+		"config": config,
+	})
+}
+
+// deleteVM handles the delete_vm tool
+func (s *Server) deleteVM(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: delete_vm")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	vmID := request.GetInt("vmid", 0)
+	if vmID <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+
+	force := request.GetBool("force", false)
+
+	result, err := s.proxmoxClient.DeleteVM(ctx, nodeName, vmID, force)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to delete VM: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action": "delete",
+		"vmid":   vmID,
+		"node":   nodeName,
+		"force":  force,
+		"result": result,
+	})
+}
+
+// suspendVM handles the suspend_vm tool
+func (s *Server) suspendVM(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: suspend_vm")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	vmID := request.GetInt("vmid", 0)
+	if vmID <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+
+	result, err := s.proxmoxClient.SuspendVM(ctx, nodeName, vmID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to suspend VM: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action": "suspend",
+		"vmid":   vmID,
+		"node":   nodeName,
+		"result": result,
+	})
+}
+
+// resumeVM handles the resume_vm tool
+func (s *Server) resumeVM(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: resume_vm")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	vmID := request.GetInt("vmid", 0)
+	if vmID <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+
+	result, err := s.proxmoxClient.ResumeVM(ctx, nodeName, vmID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to resume VM: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action": "resume",
+		"vmid":   vmID,
+		"node":   nodeName,
+		"result": result,
+	})
+}
+
+// createVM handles the create_vm tool
+func (s *Server) createVM(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: create_vm")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	vmID := request.GetInt("vmid", 0)
+	if vmID <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+
+	name := request.GetString("name", "")
+	if name == "" {
+		return mcp.NewToolResultError("name parameter is required"), nil
+	}
+
+	memory := request.GetInt("memory", 512)
+	cores := request.GetInt("cores", 1)
+	sockets := request.GetInt("sockets", 1)
+
+	result, err := s.proxmoxClient.CreateVMFull(ctx, nodeName, vmID, name, memory, cores, sockets)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to create VM: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action": "create",
+		"vmid":   vmID,
+		"name":   name,
+		"node":   nodeName,
+		"config": map[string]interface{}{
+			"memory":  memory,
+			"cores":   cores,
+			"sockets": sockets,
+		},
+		"result": result,
+	})
+}
+
+// createVMAdvanced handles the create_vm_advanced tool with full configuration
+func (s *Server) createVMAdvanced(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: create_vm_advanced")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	vmID := request.GetInt("vmid", 0)
+	if vmID <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+
+	// Build configuration from optional parameters
+	config := map[string]interface{}{
+		"vmid": vmID,
+	}
+
+	// Add optional parameters if provided
+	if name := request.GetString("name", ""); name != "" {
+		config["name"] = name
+	}
+	if memory := request.GetInt("memory", 0); memory > 0 {
+		config["memory"] = memory
+	}
+	if cores := request.GetInt("cores", 0); cores > 0 {
+		config["cores"] = cores
+	}
+	if sockets := request.GetInt("sockets", 0); sockets > 0 {
+		config["sockets"] = sockets
+	}
+	if ide2 := request.GetString("ide2", ""); ide2 != "" {
+		config["ide2"] = ide2
+	}
+	if sata0 := request.GetString("sata0", ""); sata0 != "" {
+		config["sata0"] = sata0
+	}
+	if net0 := request.GetString("net0", ""); net0 != "" {
+		config["net0"] = net0
+	}
+
+	result, err := s.proxmoxClient.CreateVM(ctx, nodeName, config)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to create VM: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action": "create",
+		"vmid":   vmID,
+		"node":   nodeName,
+		"config": config,
+		"result": result,
+	})
+}
+
+// cloneVM handles the clone_vm tool
+func (s *Server) cloneVM(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: clone_vm")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	sourceVMID := request.GetInt("source_vmid", 0)
+	if sourceVMID <= 0 {
+		return mcp.NewToolResultError("source_vmid parameter is required and must be a positive integer"), nil
+	}
+
+	newVMID := request.GetInt("new_vmid", 0)
+	if newVMID <= 0 {
+		return mcp.NewToolResultError("new_vmid parameter is required and must be a positive integer"), nil
+	}
+
+	newName := request.GetString("new_name", "")
+	if newName == "" {
+		return mcp.NewToolResultError("new_name parameter is required"), nil
+	}
+
+	full := request.GetBool("full", true)
+
+	result, err := s.proxmoxClient.CloneVM(ctx, nodeName, sourceVMID, newVMID, newName, full)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to clone VM: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action":       "clone",
+		"source_vmid":  sourceVMID,
+		"new_vmid":     newVMID,
+		"new_name":     newName,
+		"node":         nodeName,
+		"full_clone":   full,
+		"result":       result,
 	})
 }
 
@@ -1006,27 +1309,6 @@ func (s *Server) setACL(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 		"propagate": propagate,
 		"message":   "ACL set successfully",
 		"result":    result,
-	})
-}
-
-// listAPITokens handles the list_api_tokens tool
-func (s *Server) listAPITokens(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	s.logger.Debug("Tool called: list_api_tokens")
-
-	userID := request.GetString("userid", "")
-	if userID == "" {
-		return mcp.NewToolResultError("userid parameter is required"), nil
-	}
-
-	tokens, err := s.proxmoxClient.ListAPITokens(ctx, userID)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to list API tokens: %v", err)), nil
-	}
-
-	return mcp.NewToolResultJSON(map[string]interface{}{
-		"tokens": tokens,
-		"userid": userID,
-		"count":  len(tokens),
 	})
 }
 

@@ -10,9 +10,11 @@ Model Context Protocol (MCP) server for Proxmox Virtual Environment infrastructu
 
 ## Features
 
-- **48 management tools** across 6 operational categories
-- **User & Access Management**: 17 tools for users, groups, roles, API tokens, and ACLs
+- **55 management tools** across 6 operational categories
+- **User & Access Management**: 16 tools for users, groups, roles, and ACLs
 - **Backup & Restore Operations**: 6 tools for VM/container backup creation, management, and restoration
+- **VM Creation & Cloning**: 3 tools for creating and cloning virtual machines
+- **Advanced Cluster Management**: 6 tools for detailed cluster and status operations
 - **Cluster Management**: Monitor cluster health and node status
 - **Virtual Machine Management**: List, monitor, and manage VMs
 - **Container Management**: Manage LXC containers
@@ -82,9 +84,9 @@ curl -X POST http://localhost:8000/mcp \
 - `MCP_TRANSPORT`: Set to `"http"` for HTTP transport (default: `"stdio"`)
 - `MCP_HTTP_ADDR`: HTTP server address (default: `:8000`)
 
-## Available Tools (48 Total)
+## Available Tools (55 Total)
 
-### User & Access Management (17 tools)
+### User & Access Management (16 tools)
 - `list_users` - List all users in the system
 - `get_user` - Get detailed information about a specific user
 - `create_user` - Create a new user account
@@ -97,9 +99,8 @@ curl -X POST http://localhost:8000/mcp \
 - `list_roles` - List all roles and their privileges
 - `create_role` - Create a custom role with specific privileges
 - `delete_role` - Remove a custom role
-- `list_acl_entries` - List all ACL entries (path-based permissions)
+- `list_acl` - List all ACL entries (path-based permissions)
 - `set_acl` - Configure access control for a specific path
-- `list_api_tokens` - List all API tokens in the system
 - `create_api_token` - Create a new API token for authentication
 - `delete_api_token` - Revoke an API token
 
@@ -114,29 +115,33 @@ curl -X POST http://localhost:8000/mcp \
 ### Cluster & Node Management (6 tools)
 - `get_nodes` - List all nodes in the Proxmox cluster
 - `get_node_status` - Get detailed status for a specific node
-- `get_cluster_resources` - Get overview of cluster resources
+- `get_cluster_resources` - Get overview of cluster resources (nodes, VMs, containers, storage)
+- `get_cluster_status` - Get cluster-wide status information
 - `get_storage` - List all storage devices in the cluster
 - `get_node_storage` - Get storage devices for a specific node
-- [Planned] Additional cluster operations
 
-### Virtual Machine Management (6 tools)
+### Virtual Machine Management (12 tools)
 - `get_vms` - List all VMs on a specific node
 - `get_vm_status` - Get detailed VM information and status
+- `get_vm_config` - Get full configuration of a virtual machine
 - `start_vm` - Power on a virtual machine
 - `stop_vm` - Power off a virtual machine
+- `shutdown_vm` - Gracefully shutdown a virtual machine
 - `reboot_vm` - Reboot a virtual machine
-- [Planned] VM configuration and creation
+- `delete_vm` - Delete a virtual machine (with optional force)
+- `suspend_vm` - Suspend (pause) a virtual machine
+- `resume_vm` - Resume a suspended virtual machine
+- `create_vm` - Create a new virtual machine with basic configuration
+- `create_vm_advanced` - Create a VM with advanced configuration options
+- `clone_vm` - Clone an existing virtual machine
 
-### Container Management (6 tools)
+### Container Management (7 tools)
 - `get_containers` - List all containers on a specific node
 - `get_container_status` - Get detailed container information and status
 - `start_container` - Start an LXC container
 - `stop_container` - Stop an LXC container
+- `shutdown_container` - Gracefully shutdown an LXC container
 - `reboot_container` - Reboot a container
-- [Planned] Container configuration and creation
-
-### Monitoring & Resources (1 tool)
-- `get_storage` - Query cluster storage resources
 
 ## Skills & Capabilities
 
