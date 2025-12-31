@@ -153,7 +153,9 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, body in
 
 	// Set authentication header
 	req.Header.Set("Authorization", fmt.Sprintf("PVEAPIToken=%s", c.apiToken))
-	req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
