@@ -4,7 +4,7 @@ Model Context Protocol (MCP) server for Proxmox Virtual Environment infrastructu
 
 **Focused on:** Comprehensive Proxmox infrastructure management including cluster operations, VM/container lifecycle, user access control, backup/restore operations, storage management, and task monitoring.
 
-⚠️ **Early Development Warning**: This project is in active development (Phase 5 Extended + HA + Cluster Ops + Firewall/Network). While tested and functional, use with caution in production environments.
+⚠️ **Production Ready**: Core infrastructure automation complete (107 tools). Use with caution and test in staging before production deployment.
 
 ⚠️ **Prompt Injection Risk**: You are responsible for guarding against prompt injection when using these tools. Exercise extreme caution or use MCP tools only on systems and data you trust.
 
@@ -97,7 +97,7 @@ curl -X POST http://localhost:8000/mcp \
 - `MCP_TRANSPORT`: Set to `"http"` for HTTP transport (default: `"stdio"`)
 - `MCP_HTTP_ADDR`: HTTP server address (default: `:8000`)
 
-## Available Tools (107 Total - Phase 4 Complete + Pool CRUD + Extended + HA + Cluster Ops + Firewall/Network)
+## Available Tools (107 Total)
 
 ### User & Access Management (15 tools)
 - `list_users` - List all users in the system
@@ -253,16 +253,18 @@ curl -X POST http://localhost:8000/mcp \
 
 ## Skills & Capabilities
 
-This MCP implements the following domain-specific skills:
+This MCP implements comprehensive Proxmox VE infrastructure automation:
 
-1. **Cluster Management** - Monitor and manage cluster nodes and resources
-2. **Virtual Machine Management** - Create and manage virtual machines
-3. **Container Management** - Create and manage LXC containers
-4. **Storage Management** - Manage and monitor storage infrastructure
-5. **Monitoring & Analytics** - Monitor performance and health metrics
-6. **Disaster Recovery** - Implement backup and recovery strategies
-
-See [.github/skills](.github/skills) for detailed skill documentation.
+1. **Cluster & HA Management** - Monitor cluster nodes, manage high availability, add/remove nodes
+2. **Virtual Machine Lifecycle** - Create, configure, migrate, snapshot, and backup VMs
+3. **Container Management** - Full LXC container lifecycle with snapshots and backups
+4. **Storage & Backup Operations** - Storage management, backup creation, restoration, quota tracking
+5. **User & Access Control** - User/group management, roles, ACLs, API tokens
+6. **Node Administration** - System configuration, updates, monitoring, logging, networking
+7. **Firewall & Network Security** - Firewall rules, security groups, VLAN configuration, interface management
+8. **Task & Performance Monitoring** - Background task tracking, resource utilization, system health
+9. **Resource Pool Management** - Multi-tenant resource isolation and allocation
+10. **Disaster Recovery & Automation** - Backup automation, restore operations, infrastructure as code
 
 ## Environment Variables
 
@@ -277,12 +279,11 @@ See [.github/skills](.github/skills) for detailed skill documentation.
 
 ## API Reference
 
-For detailed Proxmox API documentation and implementation details:
-- **Proxmox API Docs**: https://pve.proxmox.com/pve-docs/api-viewer/index.html
-- **Phase 1 Implementation Guide**: See [docs/PHASE1_IMPLEMENTATION.md](docs/PHASE1_IMPLEMENTATION.md)
-- **Tools Quick Reference**: See [docs/TOOLS_QUICK_REFERENCE.md](docs/TOOLS_QUICK_REFERENCE.md)
+For detailed information about tools and integration:
+- **Proxmox API Documentation**: https://pve.proxmox.com/pve-docs/api-viewer/index.html
+- **Tools Reference**: See [docs/TOOLS_QUICK_REFERENCE.md](docs/TOOLS_QUICK_REFERENCE.md)
 - **API Specification**: See [docs/proxmox-api-spec.json](docs/proxmox-api-spec.json)
-- **Gap Analysis & Roadmap**: See [docs/MISSING_TOOLS_ANALYSIS.md](docs/MISSING_TOOLS_ANALYSIS.md)
+- **Architecture**: See [docs/PHASE1_IMPLEMENTATION.md](docs/PHASE1_IMPLEMENTATION.md)
 
 ## Development
 
