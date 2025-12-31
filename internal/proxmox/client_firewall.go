@@ -8,35 +8,35 @@ import (
 
 // FirewallRule represents a firewall rule in Proxmox
 type FirewallRule struct {
-	ID       string `json:"id,omitempty"`
+	ID        string `json:"id,omitempty"`
 	Direction string `json:"direction"` // in, out, group
-	Action   string `json:"action"`     // ACCEPT, DROP, REJECT
-	Source   string `json:"source,omitempty"`
-	Dest     string `json:"dest,omitempty"`
-	Proto    string `json:"proto,omitempty"`
-	Sport    string `json:"sport,omitempty"`
-	Dport    string `json:"dport,omitempty"`
-	Comment  string `json:"comment,omitempty"`
-	Enable   int    `json:"enable"`
+	Action    string `json:"action"`    // ACCEPT, DROP, REJECT
+	Source    string `json:"source,omitempty"`
+	Dest      string `json:"dest,omitempty"`
+	Proto     string `json:"proto,omitempty"`
+	Sport     string `json:"sport,omitempty"`
+	Dport     string `json:"dport,omitempty"`
+	Comment   string `json:"comment,omitempty"`
+	Enable    int    `json:"enable"`
 }
 
 // SecurityGroup represents a security group/firewall group
 type SecurityGroup struct {
-	Name        string `json:"name"`
-	Comment     string `json:"comment,omitempty"`
-	Rules       []FirewallRule `json:"rules,omitempty"`
+	Name    string         `json:"name"`
+	Comment string         `json:"comment,omitempty"`
+	Rules   []FirewallRule `json:"rules,omitempty"`
 }
 
 // NetworkInterface represents a network interface
 type NetworkInterface struct {
-	Iface       string `json:"iface"`
-	Type        string `json:"type"`        // loopback, vlan, veth, tap, etc
-	Autostart   int    `json:"autostart,omitempty"`
-	Bridge      string `json:"bridge,omitempty"`
-	VLAN        int    `json:"vlan,omitempty"`
-	MACAddr     string `json:"hwaddr,omitempty"`
+	Iface       string   `json:"iface"`
+	Type        string   `json:"type"` // loopback, vlan, veth, tap, etc
+	Autostart   int      `json:"autostart,omitempty"`
+	Bridge      string   `json:"bridge,omitempty"`
+	VLAN        int      `json:"vlan,omitempty"`
+	MACAddr     string   `json:"hwaddr,omitempty"`
 	IPAddresses []string `json:"ip_addrs,omitempty"`
-	MTU         int    `json:"mtu,omitempty"`
+	MTU         int      `json:"mtu,omitempty"`
 }
 
 // VLANConfig represents VLAN configuration
