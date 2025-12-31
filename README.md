@@ -4,13 +4,13 @@ Model Context Protocol (MCP) server for Proxmox Virtual Environment infrastructu
 
 **Focused on:** Comprehensive Proxmox infrastructure management including cluster operations, VM/container lifecycle, user access control, backup/restore operations, storage management, and task monitoring.
 
-⚠️ **Early Development Warning**: This project is in active development (Phase 5 - Extended Tools). While tested and functional, use with caution in production environments.
+⚠️ **Early Development Warning**: This project is in active development (Phase 5 Extended + HA Tools). While tested and functional, use with caution in production environments.
 
 ⚠️ **Prompt Injection Risk**: You are responsible for guarding against prompt injection when using these tools. Exercise extreme caution or use MCP tools only on systems and data you trust.
 
 ## Features
 
-- **93 management tools** across 9 operational categories (Phase 4 + Pool CRUD + Extended Tools)
+- **96 management tools** across 10 operational categories (Phase 4 + Pool CRUD + Extended + HA Tools)
 - **User & Access Management**: 15 tools for users, groups, roles, and ACLs
 - **Backup & Restore Operations**: 6 tools for VM/container backup creation, management, and restoration
 - **VM Creation & Cloning**: 4 tools for creating, cloning, and configuring virtual machines
@@ -97,7 +97,7 @@ curl -X POST http://localhost:8000/mcp \
 - `MCP_TRANSPORT`: Set to `"http"` for HTTP transport (default: `"stdio"`)
 - `MCP_HTTP_ADDR`: HTTP server address (default: `:8000`)
 
-## Available Tools (93 Total - Phase 4 Complete + Pool CRUD + Extended)
+## Available Tools (96 Total - Phase 4 Complete + Pool CRUD + Extended + HA)
 
 ### User & Access Management (15 tools)
 - `list_users` - List all users in the system
@@ -218,14 +218,24 @@ curl -X POST http://localhost:8000/mcp \
 
 ## Implementation Status
 
-**Phase 5 - Extended Tools Complete** - 93 tools fully implemented:
+### Cluster Management (5 tools)
+- `get_cluster_resources` - Get all cluster resources (nodes, VMs, containers)
+- `get_cluster_status` - Get cluster-wide status information
+- `get_ha_status` - Get cluster High Availability status
+- `enable_ha_resource` - Enable High Availability for a resource
+- `disable_ha_resource` - Disable High Availability for a resource
+
+## Implementation Status
+
+**Phase 5 Extended + HA Tools** - 96 tools fully implemented:
 - ✅ Phase 1: Cluster & VM/Container basics (40 tools)
 - ✅ Phase 2: User management & advanced operations (20 tools)
 - ✅ Phase 3: Resource pools & task monitoring (8 tools)
 - ✅ Phase 4: Storage, task, and node management (13 tools)
 - ✅ Phase 5: Extended node and storage tools (8 tools + pool CRUD 4 tools = 12 tools total)
+- ✅ HA Management: High Availability clustering (3 tools)
 
-**Remaining Unimplemented**: Firewall/network rules (7 tools), advanced cluster ops (HA management, node join/remove from cluster)
+**Remaining Unimplemented**: Firewall/network rules (7 tools), advanced cluster ops (node join/remove from cluster)
 
 ## Skills & Capabilities
 
