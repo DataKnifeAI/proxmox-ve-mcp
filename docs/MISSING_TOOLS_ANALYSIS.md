@@ -143,112 +143,137 @@ This document compares the current tool implementations with the complete Proxmo
 ### 4. Storage & Backup Management
 **Importance**: HIGH  
 **Security Impact**: High  
-**Estimated Complexity**: High
+**Status**: MOSTLY COMPLETE ✓ (11/12 tools)
 
-#### Missing Tools:
-- `get_storage_info` - Get detailed storage device information
-- `create_storage` - Create new storage mount
-- `delete_storage` - Remove storage configuration
-- `get_storage_content` - List storage contents (ISO, backups, templates)
-- `upload_backup` - Upload backup to storage
-- `delete_backup` - Remove a backup file
-- `get_backup_list` - List available backups
-- `create_vm_backup` - Backup a virtual machine
-- `create_container_backup` - Backup a container
-- `restore_vm_backup` - Restore VM from backup
-- `restore_container_backup` - Restore container from backup
-- `get_storage_quota` - Get storage quotas
+#### Implemented Tools ✓:
+- ✅ `get_storage_info` - Get detailed storage device information
+- ✅ `create_storage` - Create new storage mount
+- ✅ `delete_storage` - Remove storage configuration
+- ✅ `update_storage` - Modify storage configuration
+- ✅ `get_storage_content` - List storage contents (ISO, backups, templates)
+- ✅ `delete_backup` - Remove a backup file
+- ✅ `list_backups` - List available backups
+- ✅ `create_vm_backup` - Backup a virtual machine
+- ✅ `create_container_backup` - Backup a container
+- ✅ `restore_vm_backup` - Restore VM from backup
+- ✅ `restore_container_backup` - Restore container from backup
 
-#### Use Cases:
-- Backup automation and scheduling
-- Disaster recovery automation
-- Storage capacity management
-- Backup lifecycle management
-- Data retention policies
+#### Truly Missing Tools (Low Priority):
+- `upload_backup` - Upload backup from external source to storage
+- `get_storage_quota` - Get storage quotas and usage limits
 
-#### Implementation Priority: **CRITICAL**
+#### Use Cases (Covered):
+- Backup automation and scheduling ✓
+- Disaster recovery automation ✓
+- Storage capacity management (partial)
+- Backup lifecycle management ✓
+- Data retention policies (partial)
 
 ---
 
 ### 5. Task & Background Job Management
 **Importance**: MEDIUM  
 **Security Impact**: Low  
-**Estimated Complexity**: Low
+**Status**: COMPLETE ✓ (5/5 tools)
 
-#### Missing Tools:
-- `list_tasks` - List background tasks (already has GetTasks in client but not exposed)
-- `get_task_status` - Get detailed task status and progress
-- `get_task_log` - Get task execution log
-- `cancel_task` - Cancel a running task
+#### Implemented Tools ✓:
+- ✅ `get_node_tasks` - Get tasks for a specific node
+- ✅ `get_cluster_tasks` - Get all tasks in the cluster
+- ✅ `get_task_status` - Get detailed task status and progress
+- ✅ `get_task_log` - Get task execution log
+- ✅ `cancel_task` - Cancel a running task
 
-#### Use Cases:
-- Long-running operation monitoring
-- Automation workflow tracking
-- Error diagnostics
-- Cleanup operations
+#### Use Cases (All Covered):
+- Long-running operation monitoring ✓
+- Automation workflow tracking ✓
+- Error diagnostics ✓
+- Cleanup operations ✓
 
-#### Implementation Priority: **MEDIUM**
+#### Implementation Priority: **COMPLETE**
 
 ---
 
 ### 6. Node Management & Maintenance
 **Importance**: MEDIUM  
 **Security Impact**: Medium  
-**Estimated Complexity**: Medium
+**Status**: MOSTLY COMPLETE ✓ (8/11 tools)
 
-#### Missing Tools:
-- `get_node_config` - Get node network/system configuration
-- `update_node_config` - Modify node settings
-- `reboot_node` - Reboot a node
-- `shutdown_node` - Gracefully shutdown a node
-- `get_node_cert` - Get SSL certificate info
+#### Implemented Tools ✓:
+- ✅ `get_node_config` - Get node network/system configuration
+- ✅ `update_node_config` - Modify node settings
+- ✅ `reboot_node` - Reboot a node
+- ✅ `shutdown_node` - Gracefully shutdown a node
+- ✅ `get_node_cert` - Get SSL certificate info
+- ✅ `get_node_disks` - List physical disks
+- ✅ `get_node_stats` - Get performance statistics
+- ✅ `get_node_status` - Get detailed node status
+
+#### Truly Missing Tools (Low Priority):
 - `get_node_logs` - Get node system logs
 - `get_node_apt_updates` - Check available updates
 - `apply_node_updates` - Install system updates
-- `get_node_disks` - List physical disks
-- `get_node_network` - Get network configuration
+- `get_node_network` - Get detailed network configuration
 - `get_node_dns` - Get DNS configuration
 
-#### Use Cases:
-- Maintenance operations
-- System monitoring and alerting
-- Compliance and audit logging
-- Network troubleshooting
-- Update management
-
-#### Implementation Priority: **MEDIUM**
+#### Use Cases (Mostly Covered):
+- Maintenance operations ✓
+- System monitoring and alerting ✓
+- Network troubleshooting (partial)
+- Update management (partial)
+- Compliance and audit logging (partial)
 
 ---
 
-### 7. Cluster Management
+### Resource Pool Management
+**Importance**: MEDIUM  
+**Security Impact**: Low  
+**Status**: COMPLETE ✓ (6/6 tools)
+
+#### Implemented Tools ✓:
+- ✅ `list_pools` - List all resource pools in cluster
+- ✅ `get_pool` - Get details for a specific pool
+- ✅ `create_pool` - Create a new resource pool
+- ✅ `update_pool` - Update an existing resource pool
+- ✅ `delete_pool` - Delete a resource pool
+- ✅ `get_pool_members` - Get members of a resource pool
+
+#### Use Cases (All Covered):
+- Multi-tenant resource separation ✓
+- Resource pool lifecycle management ✓
+- Resource enumeration and auditing ✓
+
+#### Implementation Priority: **COMPLETE**
+
+---
 **Importance**: MEDIUM  
 **Security Impact**: Medium  
-**Estimated Complexity**: High
+**Status**: PARTIAL (2/8 tools - basic cluster ops only)
 
-#### Missing Tools:
-- `get_cluster_status` - Get detailed cluster status
+#### Partially Implemented Tools:
+- ✅ `get_cluster_resources` - Get all cluster resources (nodes, VMs, containers)
+- ✅ `get_cluster_status` - Get cluster-wide status
+
+#### Truly Missing Tools (Advanced Cluster Ops - Low Priority):
 - `get_cluster_config` - Get cluster configuration
 - `get_cluster_nodes_status` - Get all nodes in cluster and their status
-- `add_node_to_cluster` - Add node to cluster
+- `add_node_to_cluster` - Add node to cluster (requires offline node)
 - `remove_node_from_cluster` - Remove node from cluster
 - `get_ha_status` - Get HA (High Availability) status
 - `enable_ha_resource` - Enable HA for a resource
 - `disable_ha_resource` - Disable HA for a resource
 
-#### Use Cases:
-- Cluster topology management
-- High availability management
-- Disaster recovery planning
-- Cluster capacity planning
-
-#### Implementation Priority: **MEDIUM**
+#### Use Cases (Partially Covered):
+- Cluster topology management (partial)
+- High availability management (not covered)
+- Disaster recovery planning (partial)
+- Cluster capacity planning (partial)
 
 ---
 
 ### 8. Firewall & Network Management
 **Importance**: MEDIUM  
 **Security Impact**: HIGH  
-**Estimated Complexity**: Medium-High
+**Status**: NOT IMPLEMENTED (0/7 tools)
 
 #### Missing Tools:
 - `get_firewall_rules` - List cluster firewall rules
@@ -263,6 +288,8 @@ This document compares the current tool implementations with the complete Proxmo
 - Network security hardening
 - Traffic policy enforcement
 - Compliance requirements
+
+#### Implementation Priority: **LOW** (Advanced networking)
 - Network troubleshooting
 
 #### Implementation Priority: **MEDIUM**

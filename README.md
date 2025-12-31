@@ -97,7 +97,7 @@ curl -X POST http://localhost:8000/mcp \
 - `MCP_TRANSPORT`: Set to `"http"` for HTTP transport (default: `"stdio"`)
 - `MCP_HTTP_ADDR`: HTTP server address (default: `:8000`)
 
-## Available Tools (81 Total - Phase 4 Complete)
+## Available Tools (85 Total - Phase 4 Complete + Pool CRUD)
 
 ### User & Access Management (15 tools)
 - `list_users` - List all users in the system
@@ -170,9 +170,44 @@ curl -X POST http://localhost:8000/mcp \
 - `restore_container_snapshot` - Restore an LXC container from a snapshot
 - `get_container_stats` - Get performance statistics for a container
 
-### Resource Pools (2 tools)
+### Resource Pools (6 tools)
 - `list_pools` - List all resource pools in the cluster
 - `get_pool` - Get details for a specific resource pool
+- `create_pool` - Create a new resource pool
+- `update_pool` - Update an existing resource pool
+- `delete_pool` - Delete a resource pool
+- `get_pool_members` - Get members of a resource pool
+
+### Task Management (5 tools)
+- `get_cluster_tasks` - Get all tasks in the cluster
+- `get_node_tasks` - Get tasks for a specific node
+- `get_task_status` - Get detailed status and progress of a task
+- `get_task_log` - Get task execution log and output
+- `cancel_task` - Cancel a running task
+
+### Node Management (8 tools)
+- `get_nodes` - Get all nodes in the cluster
+- `get_node_status` - Get detailed status information for a specific node
+- `get_node_config` - Get node network and system configuration
+- `update_node_config` - Modify node settings
+- `get_node_disks` - List physical disks in a node
+- `get_node_cert` - Get SSL certificate information for a node
+- `get_node_stats` - Get performance statistics for a specific node
+- `get_node_storage` - Get storage devices for a specific node
+- `reboot_node` - Reboot a node
+- `shutdown_node` - Gracefully shutdown a node
+
+### Backup & Restore (6 tools)
+- `create_vm_backup` - Create a backup of a virtual machine
+- `create_container_backup` - Create a backup of a container
+- `delete_backup` - Delete a backup file
+- `restore_vm_backup` - Restore a virtual machine from a backup
+- `restore_container_backup` - Restore a container from a backup
+- `list_backups` - List available backups in storage
+
+### Cluster Management (2 tools)
+- `get_cluster_resources` - Get all cluster resources (nodes, VMs, containers)
+- `get_cluster_status` - Get cluster-wide status information
 
 ## Implementation Status
 
