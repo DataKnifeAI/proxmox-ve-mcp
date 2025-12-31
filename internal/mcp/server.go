@@ -511,10 +511,38 @@ func (s *Server) registerTools() {
 		"node_name": map[string]any{"type": "string", "description": "Node name to remove"},
 	})
 
+	// ============ FIREWALL & NETWORK MANAGEMENT ============
+	addTool("get_firewall_rules", "List cluster-wide firewall rules", s.getFirewallRules, map[string]any{})
+	addTool("create_firewall_rule", "Create a new firewall rule", s.createFirewallRule, map[string]any{
+		"direction": map[string]any{"type": "string", "description": "Rule direction: in, out, or group"},
+		"action":    map[string]any{"type": "string", "description": "Action: ACCEPT, DROP, or REJECT"},
+		"source":    map[string]any{"type": "string", "description": "Source address/network (optional)"},
+		"dest":      map[string]any{"type": "string", "description": "Destination address/network (optional)"},
+		"proto":     map[string]any{"type": "string", "description": "Protocol: tcp, udp, esp, gre, etc (optional)"},
+		"sport":     map[string]any{"type": "string", "description": "Source port or port range (optional)"},
+		"dport":     map[string]any{"type": "string", "description": "Destination port or port range (optional)"},
+		"comment":   map[string]any{"type": "string", "description": "Rule comment (optional)"},
+		"enable":    map[string]any{"type": "integer", "description": "Enable rule: 0 or 1 (default: 1)"},
+	})
+	addTool("delete_firewall_rule", "Delete a firewall rule by position", s.deleteFirewallRule, map[string]any{
+		"position": map[string]any{"type": "string", "description": "Rule position/ID to delete"},
+	})
+	addTool("get_security_groups", "List all security groups (firewall groups)", s.getSecurityGroups, map[string]any{})
+	addTool("create_security_group", "Create a new security group", s.createSecurityGroup, map[string]any{
+		"name":    map[string]any{"type": "string", "description": "Security group name"},
+		"comment": map[string]any{"type": "string", "description": "Group comment (optional)"},
+	})
+	addTool("get_network_interfaces", "List network interfaces on a node", s.getNetworkInterfaces, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+	addTool("get_vlan_config", "Get VLAN configuration for a node", s.getVLANConfig, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+
 	for _, tool := range tools {
 		s.server.AddTool(tool.Tool, tool.Handler)
 	}
-	s.logger.Info("Registered 100 tools")
+	s.logger.Info("Registered 107 tools")
 }
 
 // ServeStdio starts the MCP server with stdio transport
@@ -3342,5 +3370,155 @@ func (s *Server) removeNodeFromCluster(ctx context.Context, request mcp.CallTool
 		"message": "Node removed from cluster successfully",
 		"node":    nodeName,
 		"result":  result,
+	})
+}
+
+// ============ FIREWALL & NETWORK MANAGEMENT HANDLERS ============
+
+func (s *Server) getFirewallRules(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_firewall_rules")
+
+	rules, err := s.proxmoxClient.GetFirewallRules(ctx)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get firewall rules: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Firewall rules retrieved successfully",
+		"rules":   rules,
+		"count":   len(rules),
+	})
+}
+
+func (s *Server) createFirewallRule(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: create_firewall_rule")
+
+	direction := request.GetString("direction", "")
+	if direction == "" {
+		return mcp.NewToolResultError("direction parameter is required"), nil
+	}
+
+	action := request.GetString("action", "")
+	if action == "" {
+		return mcp.NewToolResultError("action parameter is required"), nil
+	}
+
+	rule := proxmox.FirewallRule{
+		Direction: direction,
+		Action:    action,
+		Source:    request.GetString("source", ""),
+		Dest:      request.GetString("dest", ""),
+		Proto:     request.GetString("proto", ""),
+		Sport:     request.GetString("sport", ""),
+		Dport:     request.GetString("dport", ""),
+		Comment:   request.GetString("comment", ""),
+		Enable:    request.GetInt("enable", 1),
+	}
+
+	if err := s.proxmoxClient.CreateFirewallRule(ctx, rule); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to create firewall rule: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Firewall rule created successfully",
+		"rule":    rule,
+	})
+}
+
+func (s *Server) deleteFirewallRule(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: delete_firewall_rule")
+
+	position := request.GetString("position", "")
+	if position == "" {
+		return mcp.NewToolResultError("position parameter is required"), nil
+	}
+
+	if err := s.proxmoxClient.DeleteFirewallRule(ctx, position); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to delete firewall rule: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message":  "Firewall rule deleted successfully",
+		"position": position,
+	})
+}
+
+func (s *Server) getSecurityGroups(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_security_groups")
+
+	groups, err := s.proxmoxClient.GetSecurityGroups(ctx)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get security groups: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Security groups retrieved successfully",
+		"groups":  groups,
+		"count":   len(groups),
+	})
+}
+
+func (s *Server) createSecurityGroup(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: create_security_group")
+
+	name := request.GetString("name", "")
+	if name == "" {
+		return mcp.NewToolResultError("name parameter is required"), nil
+	}
+
+	group := proxmox.SecurityGroup{
+		Name:    name,
+		Comment: request.GetString("comment", ""),
+	}
+
+	if err := s.proxmoxClient.CreateSecurityGroup(ctx, group); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to create security group: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Security group created successfully",
+		"group":   group,
+	})
+}
+
+func (s *Server) getNetworkInterfaces(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_network_interfaces")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	interfaces, err := s.proxmoxClient.GetNetworkInterfaces(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get network interfaces: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message":    "Network interfaces retrieved successfully",
+		"node":       nodeName,
+		"interfaces": interfaces,
+		"count":      len(interfaces),
+	})
+}
+
+func (s *Server) getVLANConfig(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_vlan_config")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	vlans, err := s.proxmoxClient.GetVLANConfig(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get VLAN configuration: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "VLAN configuration retrieved successfully",
+		"node":    nodeName,
+		"vlans":   vlans,
+		"count":   len(vlans),
 	})
 }
