@@ -12,8 +12,10 @@ Create, manage, and optimize virtual machines in your Proxmox environment.
 This skill enables you to:
 - List virtual machines on specific nodes
 - Get detailed VM configuration and status
-- Start, stop, and reboot virtual machines
-- Create new virtual machines
+- Start, stop, reboot, suspend, and resume virtual machines
+- Create new virtual machines with basic or advanced configuration
+- Clone existing virtual machines
+- Delete virtual machines
 - Modify VM resource allocation
 - Monitor VM performance metrics
 - Manage VM snapshots
@@ -36,35 +38,39 @@ Use this skill when you need to:
 
 - `get_vms` - List all VMs on a specific node
 - `get_vm_status` - Get detailed VM status and configuration
+- `get_vm_config` - Get full VM configuration details
 - `start_vm` - Start a virtual machine
 - `stop_vm` - Stop a VM immediately
 - `shutdown_vm` - Gracefully shutdown a VM
 - `reboot_vm` - Reboot a virtual machine
-- `create_vm` - Create a new virtual machine
-- `resize_vm` - Adjust VM resources (CPU, memory)
+- `suspend_vm` - Suspend (pause) a running VM
+- `resume_vm` - Resume a suspended VM
+- `create_vm` - Create a new virtual machine with basic configuration
+- `create_vm_advanced` - Create a VM with advanced configuration options
+- `clone_vm` - Clone an existing virtual machine
 - `delete_vm` - Delete a virtual machine
-- `create_vm_snapshot` - Create VM snapshot
-- `restore_vm_snapshot` - Restore from snapshot
 
 ## Typical Workflows
 
 ### VM Lifecycle Management
 1. Use `get_vms` to list available VMs
-2. Use `get_vm_status` to check VM state
-3. Use start/stop/reboot to manage VM operations
+2. Use `get_vm_status` or `get_vm_config` to check VM state
+3. Use start/stop/reboot/suspend/resume to manage VM operations
 4. Monitor VM health during changes
 
 ### VM Creation & Configuration
-1. Use `create_vm` to provision new VM
+1. Use `create_vm` or `create_vm_advanced` to provision new VM
 2. Use `get_vm_status` to verify configuration
-3. Use `resize_vm` to adjust resources as needed
-4. Document VM details for reference
+3. Use `clone_vm` to create copies for testing or deployment
+4. Use `get_vm_config` to review detailed settings
+5. Document VM details for reference
 
-### VM Optimization
-1. Use `get_vm_status` to analyze current resource usage
-2. Use `resize_vm` to optimize CPU/memory allocation
-3. Use snapshots for testing before major changes
-4. Monitor performance improvements
+### VM Lifecycle Operations
+1. Use `suspend_vm` to pause a running VM (preserves state)
+2. Use `resume_vm` to resume operations from suspended state
+3. Use `shutdown_vm` for graceful shutdown
+4. Use `reboot_vm` to restart VM
+5. Use `stop_vm` for immediate termination if needed
 
 ### VM Troubleshooting
 1. Use `get_vm_status` to check VM health
@@ -76,11 +82,14 @@ Use this skill when you need to:
 
 - "List all VMs on the production node"
 - "What's the status and resource usage of VM 100?"
+- "Get the full configuration of VM 105"
 - "Start the web server VM"
 - "Create a new VM with 4 cores and 8GB RAM"
-- "Resize VM 200 to have more CPU cores"
-- "Create a snapshot before the update"
-- "Show me all VMs and their resource allocation"
+- "Clone VM 100 to create a test copy"
+- "Suspend VM 200 for maintenance"
+- "Resume VM 200 to continue operations"
+- "Gracefully shutdown VM 150"
+- "Delete VM 199 and remove all data"
 
 ## Response Format
 
@@ -94,13 +103,16 @@ When using this skill, I provide:
 ## Best Practices
 
 - Monitor VM performance regularly
-- Use snapshots before major changes
+- Use cloning for quick VM deployment
+- Create VMs with appropriate resource allocation
+- Use suspend/resume for temporary pauses
+- Use graceful shutdown to minimize data loss
 - Plan resource allocation carefully
 - Balance VMs across nodes
 - Implement high-availability for critical VMs
 - Keep VM templates updated
-- Document VM configuration
+- Document VM configuration and purpose
 - Test changes in non-production first
-- Use graceful shutdown when possible
 - Monitor disk usage to prevent full disks
+- Clean up unused VMs to conserve resources
 
