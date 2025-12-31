@@ -138,6 +138,19 @@ curl -X POST http://localhost:8000/mcp \
 ### Monitoring & Resources (1 tool)
 - `get_storage` - Query cluster storage resources
 
+## Skills & Capabilities
+
+This MCP implements the following domain-specific skills:
+
+1. **Cluster Management** - Monitor and manage cluster nodes and resources
+2. **Virtual Machine Management** - Create and manage virtual machines
+3. **Container Management** - Create and manage LXC containers
+4. **Storage Management** - Manage and monitor storage infrastructure
+5. **Monitoring & Analytics** - Monitor performance and health metrics
+6. **Disaster Recovery** - Implement backup and recovery strategies
+
+See [.github/skills](.github/skills) for detailed skill documentation.
+
 ## Environment Variables
 
 | Variable | Description | Default |

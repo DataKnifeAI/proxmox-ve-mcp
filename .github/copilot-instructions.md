@@ -156,6 +156,19 @@ Common errors:
 - Monitor backup success
 - Plan recovery scenarios
 
+## Skills Provided
+
+This MCP server implements the following domain-specific skills:
+
+1. **Cluster Management** - Monitor and manage cluster nodes and resources
+2. **Virtual Machine Management** - Create and manage virtual machines
+3. **Container Management** - Create and manage LXC containers
+4. **Storage Management** - Manage and monitor storage infrastructure
+5. **Monitoring & Analytics** - Monitor performance and health metrics
+6. **Disaster Recovery** - Implement backup and recovery strategies
+
+See [.github/skills](.github/skills) for detailed skill documentation.
+
 ## Documentation References
 
 For detailed information, users can consult:
@@ -164,6 +177,7 @@ For detailed information, users can consult:
 - **API**: See `/docs/API_REFERENCE.md` for all endpoints
 - **Best Practices**: See `/docs/BEST_PRACTICES.md`
 - **Troubleshooting**: See `/docs/TROUBLESHOOTING.md`
+- **Skills**: See `/.github/skills/` for domain-specific capabilities
 
 ---
 
