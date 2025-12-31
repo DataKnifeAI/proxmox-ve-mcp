@@ -499,10 +499,22 @@ func (s *Server) registerTools() {
 		"sid": map[string]any{"type": "string", "description": "Resource ID to disable HA"},
 	})
 
+	// ============ CLUSTER OPERATIONS ============
+	addTool("get_cluster_config", "Get cluster configuration", s.getClusterConfig, map[string]any{})
+	addTool("get_cluster_nodes_status", "Get status of all nodes in the cluster", s.getClusterNodesStatus, map[string]any{})
+	addTool("add_node_to_cluster", "Add a node to the cluster", s.addNodeToCluster, map[string]any{
+		"node_name":       map[string]any{"type": "string", "description": "Node name to add"},
+		"cluster_name":    map[string]any{"type": "string", "description": "Cluster name (optional)"},
+		"cluster_network": map[string]any{"type": "string", "description": "Cluster network address (optional)"},
+	})
+	addTool("remove_node_from_cluster", "Remove a node from the cluster", s.removeNodeFromCluster, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name to remove"},
+	})
+
 	for _, tool := range tools {
 		s.server.AddTool(tool.Tool, tool.Handler)
 	}
-	s.logger.Info("Registered 96 tools")
+	s.logger.Info("Registered 100 tools")
 }
 
 // ServeStdio starts the MCP server with stdio transport
@@ -3256,6 +3268,79 @@ func (s *Server) disableHAResource(ctx context.Context, request mcp.CallToolRequ
 	return mcp.NewToolResultJSON(map[string]interface{}{
 		"message": "HA resource disabled successfully",
 		"sid":     sid,
+		"result":  result,
+	})
+}
+
+// ============ CLUSTER OPERATIONS HANDLERS ============
+
+func (s *Server) getClusterConfig(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_cluster_config")
+
+	config, err := s.proxmoxClient.GetClusterConfig(ctx)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get cluster config: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Cluster configuration retrieved successfully",
+		"config":  config,
+	})
+}
+
+func (s *Server) getClusterNodesStatus(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_cluster_nodes_status")
+
+	status, err := s.proxmoxClient.GetClusterNodesStatus(ctx)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get cluster nodes status: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Cluster nodes status retrieved successfully",
+		"status":  status,
+	})
+}
+
+func (s *Server) addNodeToCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: add_node_to_cluster")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	clusterName := request.GetString("cluster_name", "")
+	clusterNetwork := request.GetString("cluster_network", "")
+
+	result, err := s.proxmoxClient.AddNodeToCluster(ctx, nodeName, clusterName, clusterNetwork)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to add node to cluster: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Node added to cluster successfully",
+		"node":    nodeName,
+		"result":  result,
+	})
+}
+
+func (s *Server) removeNodeFromCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: remove_node_from_cluster")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	result, err := s.proxmoxClient.RemoveNodeFromCluster(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to remove node from cluster: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Node removed from cluster successfully",
+		"node":    nodeName,
 		"result":  result,
 	})
 }

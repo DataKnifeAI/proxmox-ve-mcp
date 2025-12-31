@@ -64,3 +64,23 @@ func (c *Client) EnableHAResource(ctx context.Context, sid, comment string, stat
 func (c *Client) DisableHAResource(ctx context.Context, sid string) (interface{}, error) {
 	return c.doRequest(ctx, "DELETE", fmt.Sprintf("cluster/ha/resources/%s", sid), nil)
 }
+
+// AddNodeToCluster adds a node to the cluster
+func (c *Client) AddNodeToCluster(ctx context.Context, nodeName, clusterName, clusterNetwork string) (interface{}, error) {
+	body := map[string]interface{}{
+		"nodeid": nodeName,
+	}
+	if clusterName != "" {
+		body["clustername"] = clusterName
+	}
+	if clusterNetwork != "" {
+		body["clusternetwork"] = clusterNetwork
+	}
+
+	return c.doRequest(ctx, "POST", "cluster/nodes", body)
+}
+
+// RemoveNodeFromCluster removes a node from the cluster
+func (c *Client) RemoveNodeFromCluster(ctx context.Context, nodeName string) (interface{}, error) {
+	return c.doRequest(ctx, "DELETE", fmt.Sprintf("cluster/nodes/%s", nodeName), nil)
+}
