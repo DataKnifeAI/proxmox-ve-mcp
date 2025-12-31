@@ -3103,10 +3103,10 @@ func (s *Server) getNodeLogs(ctx context.Context, request mcp.CallToolRequest) (
 	}
 
 	return mcp.NewToolResultJSON(map[string]interface{}{
-		"message":   "Node system logs retrieved successfully",
-		"node":      nodeName,
-		"lines":     lines,
-		"logs":      logs,
+		"message": "Node system logs retrieved successfully",
+		"node":    nodeName,
+		"lines":   lines,
+		"logs":    logs,
 	})
 }
 

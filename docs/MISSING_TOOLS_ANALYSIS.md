@@ -4,9 +4,9 @@
 This document compares the current tool implementations with the complete Proxmox API specification to identify missing tools that could be added to enhance functionality.
 
 ## Current Implementation Summary
-- **Total Tools**: 85
-- **Read-only Tools**: 28 (query/monitoring)
-- **Control Tools**: 57 (action/management)
+- **Total Tools**: 93
+- **Read-only Tools**: 35 (query/monitoring)
+- **Control Tools**: 58 (action/management)
 - **Categories**: 9
 
 ## Recently Implemented Tools (Phase 3 - COMPLETED)
@@ -143,7 +143,7 @@ This document compares the current tool implementations with the complete Proxmo
 ### 4. Storage & Backup Management
 **Importance**: HIGH  
 **Security Impact**: High  
-**Status**: MOSTLY COMPLETE ✓ (11/12 tools)
+**Status**: COMPLETE ✓ (11/11 tools)
 
 #### Implemented Tools ✓:
 - ✅ `get_storage_info` - Get detailed storage device information
@@ -157,17 +157,15 @@ This document compares the current tool implementations with the complete Proxmo
 - ✅ `create_container_backup` - Backup a container
 - ✅ `restore_vm_backup` - Restore VM from backup
 - ✅ `restore_container_backup` - Restore container from backup
+- ✅ `get_storage_quota` - Get storage quota and usage limits
+- ✅ `upload_backup` - Upload backup from external source to storage (experimental)
 
-#### Truly Missing Tools (Low Priority):
-- `upload_backup` - Upload backup from external source to storage
-- `get_storage_quota` - Get storage quotas and usage limits
-
-#### Use Cases (Covered):
+#### Use Cases (All Covered):
 - Backup automation and scheduling ✓
 - Disaster recovery automation ✓
-- Storage capacity management (partial)
+- Storage capacity management ✓
 - Backup lifecycle management ✓
-- Data retention policies (partial)
+- Data retention policies ✓
 
 ---
 
@@ -196,7 +194,7 @@ This document compares the current tool implementations with the complete Proxmo
 ### 6. Node Management & Maintenance
 **Importance**: MEDIUM  
 **Security Impact**: Medium  
-**Status**: MOSTLY COMPLETE ✓ (8/11 tools)
+**Status**: COMPLETE ✓ (13/13 tools)
 
 #### Implemented Tools ✓:
 - ✅ `get_node_config` - Get node network/system configuration
@@ -207,20 +205,18 @@ This document compares the current tool implementations with the complete Proxmo
 - ✅ `get_node_disks` - List physical disks
 - ✅ `get_node_stats` - Get performance statistics
 - ✅ `get_node_status` - Get detailed node status
+- ✅ `get_node_logs` - Get node system logs
+- ✅ `get_node_apt_updates` - Check available updates
+- ✅ `apply_node_updates` - Install system updates
+- ✅ `get_node_network` - Get detailed network configuration
+- ✅ `get_node_dns` - Get DNS configuration
 
-#### Truly Missing Tools (Low Priority):
-- `get_node_logs` - Get node system logs
-- `get_node_apt_updates` - Check available updates
-- `apply_node_updates` - Install system updates
-- `get_node_network` - Get detailed network configuration
-- `get_node_dns` - Get DNS configuration
-
-#### Use Cases (Mostly Covered):
+#### Use Cases (All Covered):
 - Maintenance operations ✓
 - System monitoring and alerting ✓
-- Network troubleshooting (partial)
-- Update management (partial)
-- Compliance and audit logging (partial)
+- Network troubleshooting ✓
+- Update management ✓
+- Compliance and audit logging ✓
 
 ---
 

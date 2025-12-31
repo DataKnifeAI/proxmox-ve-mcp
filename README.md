@@ -4,13 +4,13 @@ Model Context Protocol (MCP) server for Proxmox Virtual Environment infrastructu
 
 **Focused on:** Comprehensive Proxmox infrastructure management including cluster operations, VM/container lifecycle, user access control, backup/restore operations, storage management, and task monitoring.
 
-⚠️ **Early Development Warning**: This project is in active development (Phase 4 complete + Pool CRUD). While tested and functional, use with caution in production environments.
+⚠️ **Early Development Warning**: This project is in active development (Phase 5 - Extended Tools). While tested and functional, use with caution in production environments.
 
 ⚠️ **Prompt Injection Risk**: You are responsible for guarding against prompt injection when using these tools. Exercise extreme caution or use MCP tools only on systems and data you trust.
 
 ## Features
 
-- **85 management tools** across 8 operational categories (Phase 4 + Pool CRUD complete)
+- **93 management tools** across 9 operational categories (Phase 4 + Pool CRUD + Extended Tools)
 - **User & Access Management**: 15 tools for users, groups, roles, and ACLs
 - **Backup & Restore Operations**: 6 tools for VM/container backup creation, management, and restoration
 - **VM Creation & Cloning**: 4 tools for creating, cloning, and configuring virtual machines
@@ -97,7 +97,7 @@ curl -X POST http://localhost:8000/mcp \
 - `MCP_TRANSPORT`: Set to `"http"` for HTTP transport (default: `"stdio"`)
 - `MCP_HTTP_ADDR`: HTTP server address (default: `:8000`)
 
-## Available Tools (85 Total - Phase 4 Complete + Pool CRUD)
+## Available Tools (93 Total - Phase 4 Complete + Pool CRUD + Extended)
 
 ### User & Access Management (15 tools)
 - `list_users` - List all users in the system
@@ -117,7 +117,7 @@ curl -X POST http://localhost:8000/mcp \
 - `create_api_token` - Create a new API token for authentication
 - `delete_api_token` - Revoke an API token
 
-### Storage Management (9 tools)
+### Storage Management (11 tools)
 - `get_storage` - List all storage devices in the cluster
 - `get_node_storage` - Get storage devices for a specific node
 - `get_storage_info` - Get detailed information about a specific storage device
@@ -126,6 +126,8 @@ curl -X POST http://localhost:8000/mcp \
 - `update_storage` - Modify storage configuration
 - `get_storage_content` - List contents (ISOs, backups, templates) in storage
 - `list_backups` - List available backups in storage
+- `get_storage_quota` - Get storage quota and usage information
+- `upload_backup` - Upload backup file to storage
 
 ### Virtual Machine Management (21 tools)
 - `get_vms` - List all VMs on a specific node
@@ -185,7 +187,7 @@ curl -X POST http://localhost:8000/mcp \
 - `get_task_log` - Get task execution log and output
 - `cancel_task` - Cancel a running task
 
-### Node Management (8 tools)
+### Node Management (13 tools)
 - `get_nodes` - Get all nodes in the cluster
 - `get_node_status` - Get detailed status information for a specific node
 - `get_node_config` - Get node network and system configuration
@@ -196,6 +198,11 @@ curl -X POST http://localhost:8000/mcp \
 - `get_node_storage` - Get storage devices for a specific node
 - `reboot_node` - Reboot a node
 - `shutdown_node` - Gracefully shutdown a node
+- `get_node_logs` - Get system logs for a node
+- `get_node_apt_updates` - Check available package updates
+- `apply_node_updates` - Install system updates
+- `get_node_network` - Get detailed network configuration
+- `get_node_dns` - Get DNS configuration
 
 ### Backup & Restore (6 tools)
 - `create_vm_backup` - Create a backup of a virtual machine
@@ -211,14 +218,14 @@ curl -X POST http://localhost:8000/mcp \
 
 ## Implementation Status
 
-**Phase 4 Complete + Pool CRUD** - 85 tools fully implemented:
+**Phase 5 - Extended Tools Complete** - 93 tools fully implemented:
 - ✅ Phase 1: Cluster & VM/Container basics (40 tools)
 - ✅ Phase 2: User management & advanced operations (20 tools)
 - ✅ Phase 3: Resource pools & task monitoring (8 tools)
 - ✅ Phase 4: Storage, task, and node management (13 tools)
-- ✅ Pool Management: CRUD operations (4 tools)
+- ✅ Phase 5: Extended node and storage tools (8 tools + pool CRUD 4 tools = 12 tools total)
 
-**Next Phase (Optional)**: Firewall/network rules, cluster management, API token enumeration
+**Remaining Unimplemented**: Firewall/network rules (7 tools), advanced cluster ops (HA management, node join/remove from cluster)
 
 ## Skills & Capabilities
 
