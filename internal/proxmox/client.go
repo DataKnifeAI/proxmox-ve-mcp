@@ -684,6 +684,54 @@ func (c *Client) MigrateVM(ctx context.Context, nodeName string, vmID int, targe
 	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/qemu/%d/migrate", nodeName, vmID), config)
 }
 
+// CreateContainerSnapshot creates a snapshot of a container
+func (c *Client) CreateContainerSnapshot(ctx context.Context, nodeName string, containerID int, snapName string, description string) (interface{}, error) {
+	data := map[string]string{
+		"snapname": snapName,
+	}
+	if description != "" {
+		data["description"] = description
+	}
+
+	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/lxc/%d/snapshot", nodeName, containerID), data)
+}
+
+// ListContainerSnapshots lists all snapshots for a container
+func (c *Client) ListContainerSnapshots(ctx context.Context, nodeName string, containerID int) ([]map[string]interface{}, error) {
+	result, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/lxc/%d/snapshot", nodeName, containerID), nil)
+	if err != nil {
+		return []map[string]interface{}{}, err
+	}
+	if result == nil {
+		return []map[string]interface{}{}, nil
+	}
+
+	// Handle response as slice
+	snapshots := []map[string]interface{}{}
+	if data, ok := result.([]interface{}); ok {
+		for _, item := range data {
+			if snap, ok := item.(map[string]interface{}); ok {
+				snapshots = append(snapshots, snap)
+			}
+		}
+	}
+	return snapshots, nil
+}
+
+// DeleteContainerSnapshot deletes a snapshot from a container
+func (c *Client) DeleteContainerSnapshot(ctx context.Context, nodeName string, containerID int, snapName string, force bool) (interface{}, error) {
+	data := map[string]interface{}{
+		"force": force,
+	}
+
+	return c.doRequest(ctx, "DELETE", fmt.Sprintf("nodes/%s/lxc/%d/snapshot/%s", nodeName, containerID, snapName), data)
+}
+
+// RestoreContainerSnapshot restores a container from a snapshot
+func (c *Client) RestoreContainerSnapshot(ctx context.Context, nodeName string, containerID int, snapName string) (interface{}, error) {
+	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/lxc/%d/snapshot/%s/rollback", nodeName, containerID, snapName), nil)
+}
+
 // ============ USER & ACCESS MANAGEMENT ============
 
 // User represents a Proxmox user

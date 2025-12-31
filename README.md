@@ -10,7 +10,7 @@ Model Context Protocol (MCP) server for Proxmox Virtual Environment infrastructu
 
 ## Features
 
-- **69 management tools** across 6 operational categories
+- **73 management tools** across 6 operational categories
 - **User & Access Management**: 16 tools for users, groups, roles, and ACLs
 - **Backup & Restore Operations**: 6 tools for VM/container backup creation, management, and restoration
 - **VM Creation & Cloning**: 4 tools for creating, cloning, and configuring virtual machines
@@ -97,7 +97,7 @@ curl -X POST http://localhost:8000/mcp \
 - `MCP_TRANSPORT`: Set to `"http"` for HTTP transport (default: `"stdio"`)
 - `MCP_HTTP_ADDR`: HTTP server address (default: `:8000`)
 
-## Available Tools (69 Total)
+## Available Tools (73 Total)
 
 ### User & Access Management (16 tools)
 - `list_users` - List all users in the system
@@ -156,7 +156,7 @@ curl -X POST http://localhost:8000/mcp \
 - `get_vm_firewall_rules` - Get firewall rules for a virtual machine
 - `migrate_vm` - Migrate a virtual machine to another node
 
-### Container Management (13 tools)
+### Container Management (18 tools)
 - `get_containers` - List all containers on a specific node
 - `get_container_status` - Get detailed container information and status
 - `get_container_config` - Get full configuration of a container
@@ -169,6 +169,10 @@ curl -X POST http://localhost:8000/mcp \
 - `create_container_advanced` - Create a container with advanced configuration options
 - `clone_container` - Clone an existing LXC container
 - `update_container_config` - Update container configuration
+- `create_container_snapshot` - Create a snapshot of an LXC container
+- `list_container_snapshots` - List all snapshots for an LXC container
+- `delete_container_snapshot` - Delete a snapshot from an LXC container
+- `restore_container_snapshot` - Restore an LXC container from a snapshot
 
 ## Skills & Capabilities
 

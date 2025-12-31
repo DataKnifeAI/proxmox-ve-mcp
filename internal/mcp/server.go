@@ -143,10 +143,10 @@ func (s *Server) registerTools() {
 		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
 	})
 	addTool("create_vm_snapshot", "Create a snapshot of a virtual machine", s.createVMSnapshot, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":         map[string]any{"type": "integer", "description": "VM ID"},
-		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
-		"description":  map[string]any{"type": "string", "description": "Snapshot description (optional)"},
+		"node_name":   map[string]any{"type": "string", "description": "Name of the node"},
+		"vmid":        map[string]any{"type": "integer", "description": "VM ID"},
+		"snap_name":   map[string]any{"type": "string", "description": "Snapshot name"},
+		"description": map[string]any{"type": "string", "description": "Snapshot description (optional)"},
 	})
 	addTool("list_vm_snapshots", "List all snapshots for a virtual machine", s.listVMSnapshots, map[string]any{
 		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
@@ -168,10 +168,10 @@ func (s *Server) registerTools() {
 		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
 	})
 	addTool("migrate_vm", "Migrate a virtual machine to another node", s.migrateVM, map[string]any{
-		"node_name":  map[string]any{"type": "string", "description": "Source node name"},
-		"vmid":       map[string]any{"type": "integer", "description": "VM ID"},
+		"node_name":   map[string]any{"type": "string", "description": "Source node name"},
+		"vmid":        map[string]any{"type": "integer", "description": "VM ID"},
 		"target_node": map[string]any{"type": "string", "description": "Target node name"},
-		"online":     map[string]any{"type": "boolean", "description": "Perform live migration (optional)"},
+		"online":      map[string]any{"type": "boolean", "description": "Perform live migration (optional)"},
 	})
 
 	// Container Management - Query
@@ -240,6 +240,27 @@ func (s *Server) registerTools() {
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 		"config":       map[string]any{"type": "object", "description": "Configuration to update"},
+	})
+	addTool("create_container_snapshot", "Create a snapshot of an LXC container", s.createContainerSnapshot, map[string]any{
+		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
+		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
+		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
+		"description":  map[string]any{"type": "string", "description": "Snapshot description (optional)"},
+	})
+	addTool("list_container_snapshots", "List all snapshots for an LXC container", s.listContainerSnapshots, map[string]any{
+		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
+		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
+	})
+	addTool("delete_container_snapshot", "Delete a snapshot from an LXC container", s.deleteContainerSnapshot, map[string]any{
+		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
+		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
+		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
+		"force":        map[string]any{"type": "boolean", "description": "Force delete (optional)"},
+	})
+	addTool("restore_container_snapshot", "Restore an LXC container from a snapshot", s.restoreContainerSnapshot, map[string]any{
+		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
+		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
+		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
 	})
 
 	// User Management - Query
@@ -1002,8 +1023,8 @@ func (s *Server) getVMConsole(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	return mcp.NewToolResultJSON(map[string]interface{}{
-		"vmid":   vmID,
-		"node":   nodeName,
+		"vmid":    vmID,
+		"node":    nodeName,
 		"console": result,
 	})
 }
@@ -1159,9 +1180,9 @@ func (s *Server) getVMFirewallRules(ctx context.Context, request mcp.CallToolReq
 	}
 
 	return mcp.NewToolResultJSON(map[string]interface{}{
-		"vmid":   vmID,
-		"node":   nodeName,
-		"rules":  result,
+		"vmid":  vmID,
+		"node":  nodeName,
+		"rules": result,
 	})
 }
 
@@ -1553,6 +1574,137 @@ func (s *Server) updateContainerConfig(ctx context.Context, request mcp.CallTool
 		"container_id": containerID,
 		"node":         nodeName,
 		"config":       config,
+		"result":       result,
+	})
+}
+
+// createContainerSnapshot handles the create_container_snapshot tool
+func (s *Server) createContainerSnapshot(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: create_container_snapshot")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	containerID := request.GetInt("container_id", 0)
+	if containerID <= 0 {
+		return mcp.NewToolResultError("container_id parameter is required and must be a positive integer"), nil
+	}
+
+	snapName := request.GetString("snap_name", "")
+	if snapName == "" {
+		return mcp.NewToolResultError("snap_name parameter is required"), nil
+	}
+
+	description := request.GetString("description", "")
+
+	result, err := s.proxmoxClient.CreateContainerSnapshot(ctx, nodeName, containerID, snapName, description)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to create container snapshot: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action":       "create_snapshot",
+		"container_id": containerID,
+		"node":         nodeName,
+		"snapshot":     snapName,
+		"description":  description,
+		"result":       result,
+	})
+}
+
+// listContainerSnapshots handles the list_container_snapshots tool
+func (s *Server) listContainerSnapshots(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: list_container_snapshots")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	containerID := request.GetInt("container_id", 0)
+	if containerID <= 0 {
+		return mcp.NewToolResultError("container_id parameter is required and must be a positive integer"), nil
+	}
+
+	result, err := s.proxmoxClient.ListContainerSnapshots(ctx, nodeName, containerID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to list container snapshots: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"container_id": containerID,
+		"node":         nodeName,
+		"snapshots":    result,
+	})
+}
+
+// deleteContainerSnapshot handles the delete_container_snapshot tool
+func (s *Server) deleteContainerSnapshot(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: delete_container_snapshot")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	containerID := request.GetInt("container_id", 0)
+	if containerID <= 0 {
+		return mcp.NewToolResultError("container_id parameter is required and must be a positive integer"), nil
+	}
+
+	snapName := request.GetString("snap_name", "")
+	if snapName == "" {
+		return mcp.NewToolResultError("snap_name parameter is required"), nil
+	}
+
+	force := request.GetBool("force", false)
+
+	result, err := s.proxmoxClient.DeleteContainerSnapshot(ctx, nodeName, containerID, snapName, force)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to delete container snapshot: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action":       "delete_snapshot",
+		"container_id": containerID,
+		"node":         nodeName,
+		"snapshot":     snapName,
+		"force":        force,
+		"result":       result,
+	})
+}
+
+// restoreContainerSnapshot handles the restore_container_snapshot tool
+func (s *Server) restoreContainerSnapshot(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: restore_container_snapshot")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	containerID := request.GetInt("container_id", 0)
+	if containerID <= 0 {
+		return mcp.NewToolResultError("container_id parameter is required and must be a positive integer"), nil
+	}
+
+	snapName := request.GetString("snap_name", "")
+	if snapName == "" {
+		return mcp.NewToolResultError("snap_name parameter is required"), nil
+	}
+
+	result, err := s.proxmoxClient.RestoreContainerSnapshot(ctx, nodeName, containerID, snapName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to restore container snapshot: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action":       "restore_snapshot",
+		"container_id": containerID,
+		"node":         nodeName,
+		"snapshot":     snapName,
 		"result":       result,
 	})
 }
