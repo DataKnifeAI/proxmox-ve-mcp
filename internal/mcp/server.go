@@ -388,10 +388,65 @@ func (s *Server) registerTools() {
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 	})
 
+	// ============ PHASE 4: Storage Management (CRITICAL) ============
+	addTool("get_storage_info", "Get detailed storage device information", s.getStorageInfo, map[string]any{
+		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
+	})
+	addTool("create_storage", "Create a new storage mount", s.createStorage, map[string]any{
+		"storage":      map[string]any{"type": "string", "description": "Storage device ID"},
+		"storage_type": map[string]any{"type": "string", "description": "Storage type (dir, nfs, lvm, iscsi, etc.)"},
+		"content":      map[string]any{"type": "string", "description": "Content types (images, rootdir, backups, etc.)"},
+		"config":       map[string]any{"type": "object", "description": "Type-specific configuration (optional)"},
+	})
+	addTool("delete_storage", "Remove a storage configuration", s.deleteStorage, map[string]any{
+		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
+	})
+	addTool("update_storage", "Modify storage configuration", s.updateStorage, map[string]any{
+		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
+		"config":  map[string]any{"type": "object", "description": "Configuration to update"},
+	})
+	addTool("get_storage_content", "List storage contents (ISOs, backups, templates, etc.)", s.getStorageContent, map[string]any{
+		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
+	})
+
+	// ============ PHASE 4: Task Management (HIGH PRIORITY) ============
+	addTool("get_task_status", "Get detailed status and progress of a task", s.getTaskStatus, map[string]any{
+		"task_id": map[string]any{"type": "string", "description": "Task ID (UPID format)"},
+	})
+	addTool("get_task_log", "Get task execution log and output", s.getTaskLog, map[string]any{
+		"task_id": map[string]any{"type": "string", "description": "Task ID (UPID format)"},
+		"start":   map[string]any{"type": "integer", "description": "Start line number (optional)"},
+		"limit":   map[string]any{"type": "integer", "description": "Number of lines to return (optional)"},
+	})
+	addTool("cancel_task", "Cancel a running task", s.cancelTask, map[string]any{
+		"task_id": map[string]any{"type": "string", "description": "Task ID (UPID format)"},
+	})
+
+	// ============ PHASE 4: Node Management (HIGH PRIORITY) ============
+	addTool("get_node_config", "Get node network and system configuration", s.getNodeConfig, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+	addTool("update_node_config", "Modify node settings", s.updateNodeConfig, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+		"config":    map[string]any{"type": "object", "description": "Configuration to update"},
+	})
+	addTool("reboot_node", "Reboot a node", s.rebootNode, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+	addTool("shutdown_node", "Gracefully shutdown a node", s.shutdownNode, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+	addTool("get_node_disks", "List physical disks in a node", s.getNodeDisks, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+	addTool("get_node_cert", "Get SSL certificate information for a node", s.getNodeCert, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+
 	for _, tool := range tools {
 		s.server.AddTool(tool.Tool, tool.Handler)
 	}
-	s.logger.Info("Registered 68 tools")
+	s.logger.Info("Registered 81 tools")
 }
 
 // ServeStdio starts the MCP server with stdio transport
@@ -2477,5 +2532,352 @@ func (s *Server) getContainerStats(ctx context.Context, request mcp.CallToolRequ
 		"node":         nodeName,
 		"container_id": containerID,
 		"stats":        stats,
+	})
+}
+
+// ============ PHASE 4: STORAGE MANAGEMENT ============
+
+func (s *Server) getStorageInfo(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_storage_info")
+
+	storage := request.GetString("storage", "")
+	if storage == "" {
+		return mcp.NewToolResultError("storage parameter is required"), nil
+	}
+
+	info, err := s.proxmoxClient.GetStorageInfo(ctx, storage)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get storage info: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Storage information retrieved successfully",
+		"storage": storage,
+		"info":    info,
+	})
+}
+
+func (s *Server) createStorage(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: create_storage")
+
+	storage := request.GetString("storage", "")
+	if storage == "" {
+		return mcp.NewToolResultError("storage parameter is required"), nil
+	}
+
+	storageType := request.GetString("storage_type", "")
+	if storageType == "" {
+		return mcp.NewToolResultError("storage_type parameter is required"), nil
+	}
+
+	content := request.GetString("content", "")
+	if content == "" {
+		return mcp.NewToolResultError("content parameter is required"), nil
+	}
+
+	// Get config parameter (optional)
+	config := make(map[string]interface{})
+	args := request.GetArguments()
+	if configValue, ok := args["config"]; ok && configValue != nil {
+		configBytes, err := json.Marshal(configValue)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Invalid config parameter: %v", err)), nil
+		}
+		err = json.Unmarshal(configBytes, &config)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to parse config: %v", err)), nil
+		}
+	}
+
+	result, err := s.proxmoxClient.CreateStorage(ctx, storage, storageType, content, config)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to create storage: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Storage created successfully",
+		"storage": storage,
+		"result":  result,
+	})
+}
+
+func (s *Server) deleteStorage(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: delete_storage")
+
+	storage := request.GetString("storage", "")
+	if storage == "" {
+		return mcp.NewToolResultError("storage parameter is required"), nil
+	}
+
+	result, err := s.proxmoxClient.DeleteStorage(ctx, storage)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to delete storage: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Storage deleted successfully",
+		"storage": storage,
+		"result":  result,
+	})
+}
+
+func (s *Server) updateStorage(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: update_storage")
+
+	storage := request.GetString("storage", "")
+	if storage == "" {
+		return mcp.NewToolResultError("storage parameter is required"), nil
+	}
+
+	args := request.GetArguments()
+	configValue := args["config"]
+	if configValue == nil {
+		return mcp.NewToolResultError("config parameter is required"), nil
+	}
+
+	// Convert config to map[string]interface{}
+	var config map[string]interface{}
+	configBytes, err := json.Marshal(configValue)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Invalid config parameter: %v", err)), nil
+	}
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to parse config: %v", err)), nil
+	}
+
+	result, err := s.proxmoxClient.UpdateStorage(ctx, storage, config)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to update storage: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Storage updated successfully",
+		"storage": storage,
+		"result":  result,
+	})
+}
+
+func (s *Server) getStorageContent(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_storage_content")
+
+	storage := request.GetString("storage", "")
+	if storage == "" {
+		return mcp.NewToolResultError("storage parameter is required"), nil
+	}
+
+	content, err := s.proxmoxClient.GetStorageContent(ctx, storage)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get storage content: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Storage content retrieved successfully",
+		"storage": storage,
+		"content": content,
+	})
+}
+
+// ============ PHASE 4: TASK MANAGEMENT ============
+
+func (s *Server) getTaskStatus(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_task_status")
+
+	taskID := request.GetString("task_id", "")
+	if taskID == "" {
+		return mcp.NewToolResultError("task_id parameter is required"), nil
+	}
+
+	status, err := s.proxmoxClient.GetTaskStatus(ctx, taskID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get task status: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Task status retrieved successfully",
+		"task_id": taskID,
+		"status":  status,
+	})
+}
+
+func (s *Server) getTaskLog(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_task_log")
+
+	taskID := request.GetString("task_id", "")
+	if taskID == "" {
+		return mcp.NewToolResultError("task_id parameter is required"), nil
+	}
+
+	start := request.GetInt("start", 0)
+	limit := request.GetInt("limit", 50)
+
+	log, err := s.proxmoxClient.GetTaskLog(ctx, taskID, start, limit)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get task log: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Task log retrieved successfully",
+		"task_id": taskID,
+		"log":     log,
+	})
+}
+
+func (s *Server) cancelTask(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: cancel_task")
+
+	taskID := request.GetString("task_id", "")
+	if taskID == "" {
+		return mcp.NewToolResultError("task_id parameter is required"), nil
+	}
+
+	result, err := s.proxmoxClient.CancelTask(ctx, taskID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to cancel task: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Task cancellation requested",
+		"task_id": taskID,
+		"result":  result,
+	})
+}
+
+// ============ PHASE 4: NODE MANAGEMENT ============
+
+func (s *Server) getNodeConfig(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_node_config")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	config, err := s.proxmoxClient.GetNodeConfig(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get node config: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Node configuration retrieved successfully",
+		"node":    nodeName,
+		"config":  config,
+	})
+}
+
+func (s *Server) updateNodeConfig(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: update_node_config")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	args := request.GetArguments()
+	configValue := args["config"]
+	if configValue == nil {
+		return mcp.NewToolResultError("config parameter is required"), nil
+	}
+
+	// Convert config to map[string]interface{}
+	var config map[string]interface{}
+	configBytes, err := json.Marshal(configValue)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Invalid config parameter: %v", err)), nil
+	}
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to parse config: %v", err)), nil
+	}
+
+	result, err := s.proxmoxClient.UpdateNodeConfig(ctx, nodeName, config)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to update node config: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Node configuration updated successfully",
+		"node":    nodeName,
+		"result":  result,
+	})
+}
+
+func (s *Server) rebootNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: reboot_node")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	result, err := s.proxmoxClient.RebootNode(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to reboot node: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Node reboot initiated",
+		"node":    nodeName,
+		"result":  result,
+	})
+}
+
+func (s *Server) shutdownNode(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: shutdown_node")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	result, err := s.proxmoxClient.ShutdownNode(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to shutdown node: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Node shutdown initiated",
+		"node":    nodeName,
+		"result":  result,
+	})
+}
+
+func (s *Server) getNodeDisks(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_node_disks")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	disks, err := s.proxmoxClient.GetNodeDisks(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get node disks: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Node disks retrieved successfully",
+		"node":    nodeName,
+		"disks":   disks,
+	})
+}
+
+func (s *Server) getNodeCert(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_node_cert")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	cert, err := s.proxmoxClient.GetNodeCert(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get node certificate: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Node certificate information retrieved successfully",
+		"node":    nodeName,
+		"cert":    cert,
 	})
 }
