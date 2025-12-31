@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  proxmox-ve-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: proxmox-ve-mcp
+    environment:
+      PROXMOX_BASE_URL: ${PROXMOX_BASE_URL:-https://proxmox.example.com:8006}
+      PROXMOX_API_TOKEN: ${PROXMOX_API_TOKEN}
+      PROXMOX_SKIP_SSL_VERIFY: ${PROXMOX_SKIP_SSL_VERIFY:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    networks:
+      - proxmox-network
+
+networks:
+  proxmox-network:
+    driver: bridge
