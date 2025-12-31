@@ -462,10 +462,36 @@ func (s *Server) registerTools() {
 		"poolid": map[string]any{"type": "string", "description": "Pool ID"},
 	})
 
+	// ============ ADDITIONAL TOOLS (Phase 5 - Optional Extensions) ============
+	addTool("get_storage_quota", "Get storage quota and usage information", s.getStorageQuota, map[string]any{
+		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
+	})
+	addTool("upload_backup", "Upload backup file to storage (experimental)", s.uploadBackup, map[string]any{
+		"storage":   map[string]any{"type": "string", "description": "Storage device ID"},
+		"backup_id": map[string]any{"type": "string", "description": "Backup ID/filename"},
+		"file_path": map[string]any{"type": "string", "description": "Local file path to upload"},
+	})
+	addTool("get_node_logs", "Get node system logs", s.getNodeLogs, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+		"lines":     map[string]any{"type": "integer", "description": "Number of log lines to retrieve (optional, default: 50)"},
+	})
+	addTool("get_node_apt_updates", "Get available package updates for a node", s.getNodeAPTUpdates, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+	addTool("apply_node_updates", "Install available system updates on a node", s.applyNodeUpdates, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+	addTool("get_node_network", "Get detailed network configuration for a node", s.getNodeNetwork, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+	addTool("get_node_dns", "Get DNS configuration for a node", s.getNodeDNS, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Node name"},
+	})
+
 	for _, tool := range tools {
 		s.server.AddTool(tool.Tool, tool.Handler)
 	}
-	s.logger.Info("Registered 85 tools")
+	s.logger.Info("Registered 93 tools")
 }
 
 // ServeStdio starts the MCP server with stdio transport
@@ -3005,5 +3031,161 @@ func (s *Server) getPoolMembers(ctx context.Context, request mcp.CallToolRequest
 		"message": "Pool members retrieved successfully",
 		"poolid":  poolID,
 		"members": members,
+	})
+}
+
+// ============ ADDITIONAL TOOLS (Phase 5) ============
+
+func (s *Server) getStorageQuota(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_storage_quota")
+
+	storage := request.GetString("storage", "")
+	if storage == "" {
+		return mcp.NewToolResultError("storage parameter is required"), nil
+	}
+
+	quota, err := s.proxmoxClient.GetStorageQuota(ctx, storage)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get storage quota: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Storage quota information retrieved successfully",
+		"storage": storage,
+		"quota":   quota,
+	})
+}
+
+func (s *Server) uploadBackup(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: upload_backup")
+
+	storage := request.GetString("storage", "")
+	if storage == "" {
+		return mcp.NewToolResultError("storage parameter is required"), nil
+	}
+
+	backupID := request.GetString("backup_id", "")
+	if backupID == "" {
+		return mcp.NewToolResultError("backup_id parameter is required"), nil
+	}
+
+	filePath := request.GetString("file_path", "")
+	if filePath == "" {
+		return mcp.NewToolResultError("file_path parameter is required"), nil
+	}
+
+	result, err := s.proxmoxClient.UploadBackup(ctx, storage, backupID, filePath)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to upload backup: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message":   "Backup upload initiated",
+		"storage":   storage,
+		"backup_id": backupID,
+		"result":    result,
+	})
+}
+
+func (s *Server) getNodeLogs(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_node_logs")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	lines := request.GetInt("lines", 50)
+
+	logs, err := s.proxmoxClient.GetNodeLogs(ctx, nodeName, lines)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get node logs: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message":   "Node system logs retrieved successfully",
+		"node":      nodeName,
+		"lines":     lines,
+		"logs":      logs,
+	})
+}
+
+func (s *Server) getNodeAPTUpdates(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_node_apt_updates")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	updates, err := s.proxmoxClient.GetNodeAPTUpdates(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get APT updates: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Available package updates retrieved successfully",
+		"node":    nodeName,
+		"updates": updates,
+	})
+}
+
+func (s *Server) applyNodeUpdates(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: apply_node_updates")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	result, err := s.proxmoxClient.ApplyNodeUpdates(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to apply node updates: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "System updates installation initiated",
+		"node":    nodeName,
+		"result":  result,
+	})
+}
+
+func (s *Server) getNodeNetwork(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_node_network")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	network, err := s.proxmoxClient.GetNodeNetwork(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get node network configuration: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Node network configuration retrieved successfully",
+		"node":    nodeName,
+		"network": network,
+	})
+}
+
+func (s *Server) getNodeDNS(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_node_dns")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	dns, err := s.proxmoxClient.GetNodeDNS(ctx, nodeName)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get node DNS configuration: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"message": "Node DNS configuration retrieved successfully",
+		"node":    nodeName,
+		"dns":     dns,
 	})
 }

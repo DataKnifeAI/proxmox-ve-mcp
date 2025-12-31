@@ -72,3 +72,73 @@ func (c *Client) GetNodeCert(ctx context.Context, nodeName string) (map[string]i
 
 	return cert, nil
 }
+
+// GetNodeLogs retrieves node system logs
+func (c *Client) GetNodeLogs(ctx context.Context, nodeName string, lines int) (map[string]interface{}, error) {
+	params := map[string]interface{}{}
+	if lines > 0 {
+		params["lines"] = lines
+	}
+
+	data, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/syslog", nodeName), params)
+	if err != nil {
+		return nil, err
+	}
+
+	logs, ok := data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected syslog format")
+	}
+
+	return logs, nil
+}
+
+// GetNodeAPTUpdates checks available package updates
+func (c *Client) GetNodeAPTUpdates(ctx context.Context, nodeName string) (map[string]interface{}, error) {
+	data, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/apt/update", nodeName), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	updates, ok := data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected apt updates format")
+	}
+
+	return updates, nil
+}
+
+// ApplyNodeUpdates installs system updates on a node
+func (c *Client) ApplyNodeUpdates(ctx context.Context, nodeName string) (interface{}, error) {
+	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/apt/update", nodeName), nil)
+}
+
+// GetNodeNetwork retrieves detailed network configuration
+func (c *Client) GetNodeNetwork(ctx context.Context, nodeName string) (map[string]interface{}, error) {
+	data, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/network", nodeName), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	network, ok := data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected network format")
+	}
+
+	return network, nil
+}
+
+// GetNodeDNS retrieves DNS configuration
+func (c *Client) GetNodeDNS(ctx context.Context, nodeName string) (map[string]interface{}, error) {
+	data, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/dns", nodeName), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	dns, ok := data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected DNS format")
+	}
+
+	return dns, nil
+}

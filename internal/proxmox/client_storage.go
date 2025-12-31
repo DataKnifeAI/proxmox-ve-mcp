@@ -67,3 +67,41 @@ func (c *Client) UpdateStorage(ctx context.Context, storage string, config map[s
 	body["storage"] = storage
 	return c.doRequest(ctx, "PUT", fmt.Sprintf("storage/%s", storage), body)
 }
+
+// GetStorageQuota retrieves storage quota information
+func (c *Client) GetStorageQuota(ctx context.Context, storage string) (map[string]interface{}, error) {
+	// Proxmox doesn't have a dedicated quota endpoint, but we can get info and content
+	info, err := c.GetStorageInfo(ctx, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to get content to calculate usage
+	content, err := c.GetStorageContent(ctx, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalSize int64
+	for _, item := range content {
+		if size, ok := item["size"].(float64); ok {
+			totalSize += int64(size)
+		}
+	}
+
+	quota := map[string]interface{}{
+		"storage":    storage,
+		"info":       info,
+		"used_bytes": totalSize,
+		"content":    content,
+	}
+
+	return quota, nil
+}
+
+// UploadBackup uploads a backup file to storage (placeholder implementation)
+func (c *Client) UploadBackup(ctx context.Context, storage, backupID string, filePath string) (interface{}, error) {
+	// Note: This is a placeholder. Real implementation would require file upload handling
+	// For now, return an error indicating this operation requires direct file upload
+	return nil, fmt.Errorf("backup upload requires direct HTTP file upload - not yet fully implemented via REST API")
+}
