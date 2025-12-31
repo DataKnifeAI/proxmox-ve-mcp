@@ -10,12 +10,14 @@ Model Context Protocol (MCP) server for Proxmox Virtual Environment infrastructu
 
 ## Features
 
-- **60 management tools** across 6 operational categories
+- **62 management tools** across 6 operational categories
 - **User & Access Management**: 16 tools for users, groups, roles, and ACLs
 - **Backup & Restore Operations**: 6 tools for VM/container backup creation, management, and restoration
-- **VM Creation & Cloning**: 3 tools for creating and cloning virtual machines
-- **Container Creation & Cloning**: 5 tools for container management and lifecycle
+- **VM Creation & Cloning**: 4 tools for creating, cloning, and configuring virtual machines
+- **Container Creation & Cloning**: 6 tools for container management and lifecycle
 - **Advanced Cluster Management**: 6 tools for detailed cluster and status operations
+- **VM Configuration Management**: Update VM configs, mark as template, manage settings
+- **Container Configuration Management**: Update container configs, manage settings
 - **Cluster Management**: Monitor cluster health and node status
 - **Virtual Machine Management**: List, monitor, and manage VMs
 - **Container Management**: Manage LXC containers
@@ -129,7 +131,7 @@ curl -X POST http://localhost:8000/mcp \
 - `get_storage` - List all storage devices in the cluster
 - `get_node_storage` - Get storage devices for a specific node
 
-### Virtual Machine Management (12 tools)
+### Virtual Machine Management (14 tools)
 - `get_vms` - List all VMs on a specific node
 - `get_vm_status` - Get detailed VM information and status
 - `get_vm_config` - Get full configuration of a virtual machine
@@ -143,8 +145,9 @@ curl -X POST http://localhost:8000/mcp \
 - `create_vm` - Create a new virtual machine with basic configuration
 - `create_vm_advanced` - Create a VM with advanced configuration options
 - `clone_vm` - Clone an existing virtual machine
+- `update_vm_config` - Update VM configuration (mark as template, adjust resources, etc.)
 
-### Container Management (12 tools)
+### Container Management (13 tools)
 - `get_containers` - List all containers on a specific node
 - `get_container_status` - Get detailed container information and status
 - `get_container_config` - Get full configuration of a container
@@ -156,6 +159,7 @@ curl -X POST http://localhost:8000/mcp \
 - `create_container` - Create a new LXC container with basic configuration
 - `create_container_advanced` - Create a container with advanced configuration options
 - `clone_container` - Clone an existing LXC container
+- `update_container_config` - Update container configuration
 
 ## Skills & Capabilities
 

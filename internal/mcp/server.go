@@ -133,6 +133,11 @@ func (s *Server) registerTools() {
 		"new_name":    map[string]any{"type": "string", "description": "New VM name"},
 		"full":        map[string]any{"type": "boolean", "description": "Full clone (default: true) vs linked clone"},
 	})
+	addTool("update_vm_config", "Update virtual machine configuration (e.g., mark as template)", s.updateVMConfig, map[string]any{
+		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
+		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
+		"config":    map[string]any{"type": "object", "description": "Configuration to update (e.g., {\"template\": 1} to mark as template)"},
+	})
 
 	// Container Management - Query
 	addTool("get_containers", "Get all containers on a specific node", s.getContainers, map[string]any{
@@ -170,17 +175,17 @@ func (s *Server) registerTools() {
 		"force":        map[string]any{"type": "boolean", "description": "Force delete even if running (optional)"},
 	})
 	addTool("create_container", "Create a new LXC container", s.createContainer, map[string]any{
-		"node_name":   map[string]any{"type": "string", "description": "Name of the node"},
+		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID (must be unique)"},
-		"hostname":    map[string]any{"type": "string", "description": "Container hostname"},
-		"storage":     map[string]any{"type": "string", "description": "Storage device ID"},
-		"memory":      map[string]any{"type": "integer", "description": "Memory in MB (default: 512)"},
-		"cores":       map[string]any{"type": "integer", "description": "CPU cores (default: 1)"},
-		"ostype":      map[string]any{"type": "string", "description": "OS type (default: debian)"},
+		"hostname":     map[string]any{"type": "string", "description": "Container hostname"},
+		"storage":      map[string]any{"type": "string", "description": "Storage device ID"},
+		"memory":       map[string]any{"type": "integer", "description": "Memory in MB (default: 512)"},
+		"cores":        map[string]any{"type": "integer", "description": "CPU cores (default: 1)"},
+		"ostype":       map[string]any{"type": "string", "description": "OS type (default: debian)"},
 	})
 	addTool("create_container_advanced", "Create a container with advanced configuration options", s.createContainerAdvanced, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id":  map[string]any{"type": "integer", "description": "Container ID (must be unique)"},
+		"container_id": map[string]any{"type": "integer", "description": "Container ID (must be unique)"},
 		"hostname":     map[string]any{"type": "string", "description": "Container hostname (optional)"},
 		"storage":      map[string]any{"type": "string", "description": "Storage device ID (optional)"},
 		"memory":       map[string]any{"type": "integer", "description": "Memory in MB (optional)"},
@@ -195,6 +200,11 @@ func (s *Server) registerTools() {
 		"new_container_id":    map[string]any{"type": "integer", "description": "New container ID (must be unique)"},
 		"new_hostname":        map[string]any{"type": "string", "description": "New container hostname"},
 		"full":                map[string]any{"type": "boolean", "description": "Full clone (default: true) vs linked clone"},
+	})
+	addTool("update_container_config", "Update LXC container configuration", s.updateContainerConfig, map[string]any{
+		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
+		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
+		"config":       map[string]any{"type": "object", "description": "Configuration to update"},
 	})
 
 	// User Management - Query
@@ -881,13 +891,59 @@ func (s *Server) cloneVM(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	}
 
 	return mcp.NewToolResultJSON(map[string]interface{}{
-		"action":       "clone",
-		"source_vmid":  sourceVMID,
-		"new_vmid":     newVMID,
-		"new_name":     newName,
-		"node":         nodeName,
-		"full_clone":   full,
-		"result":       result,
+		"action":      "clone",
+		"source_vmid": sourceVMID,
+		"new_vmid":    newVMID,
+		"new_name":    newName,
+		"node":        nodeName,
+		"full_clone":  full,
+		"result":      result,
+	})
+}
+
+// updateVMConfig handles the update_vm_config tool
+func (s *Server) updateVMConfig(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: update_vm_config")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	vmID := request.GetInt("vmid", 0)
+	if vmID <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+
+	// Get all arguments to extract config
+	args := request.GetArguments()
+	configValue := args["config"]
+	if configValue == nil {
+		return mcp.NewToolResultError("config parameter is required"), nil
+	}
+
+	// Convert config to map[string]interface{}
+	var config map[string]interface{}
+	configBytes, err := json.Marshal(configValue)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Invalid config parameter: %v", err)), nil
+	}
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to parse config: %v", err)), nil
+	}
+
+	result, err := s.proxmoxClient.UpdateVM(ctx, nodeName, vmID, config)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to update VM config: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action": "update_config",
+		"vmid":   vmID,
+		"node":   nodeName,
+		"config": config,
+		"result": result,
 	})
 }
 
@@ -1198,6 +1254,52 @@ func (s *Server) cloneContainer(ctx context.Context, request mcp.CallToolRequest
 		"node":                nodeName,
 		"full_clone":          full,
 		"result":              result,
+	})
+}
+
+// updateContainerConfig handles the update_container_config tool
+func (s *Server) updateContainerConfig(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: update_container_config")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+
+	containerID := request.GetInt("container_id", 0)
+	if containerID <= 0 {
+		return mcp.NewToolResultError("container_id parameter is required and must be a positive integer"), nil
+	}
+
+	// Get all arguments to extract config
+	args := request.GetArguments()
+	configValue := args["config"]
+	if configValue == nil {
+		return mcp.NewToolResultError("config parameter is required"), nil
+	}
+
+	// Convert config to map[string]interface{}
+	var config map[string]interface{}
+	configBytes, err := json.Marshal(configValue)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Invalid config parameter: %v", err)), nil
+	}
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to parse config: %v", err)), nil
+	}
+
+	result, err := s.proxmoxClient.UpdateContainer(ctx, nodeName, containerID, config)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to update container config: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action":       "update_config",
+		"container_id": containerID,
+		"node":         nodeName,
+		"config":       config,
+		"result":       result,
 	})
 }
 

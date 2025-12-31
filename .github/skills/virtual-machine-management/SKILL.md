@@ -48,7 +48,45 @@ Use this skill when you need to:
 - `create_vm` - Create a new virtual machine with basic configuration
 - `create_vm_advanced` - Create a VM with advanced configuration options
 - `clone_vm` - Clone an existing virtual machine
+- `update_vm_config` - Update VM configuration (resources, options, mark as template)
 - `delete_vm` - Delete a virtual machine
+
+## Template VM Creation
+
+Creating template VMs allows you to quickly deploy preconfigured virtual machines:
+
+### Workflow: Create a Template VM
+
+1. **Create or prepare a base VM**
+   - Use `create_vm_advanced` or clone from an existing VM
+   - Install and configure the OS and applications
+   - Test thoroughly before templating
+
+2. **Update VM as Template**
+   - Use `update_vm_config` with `template: 1` to mark as template
+   ```json
+   {
+     "template": 1
+   }
+   ```
+
+3. **Clone from Template**
+   - Use `clone_vm` to create instances from the template
+   - Template VMs cannot be directly used as running instances
+   - Each clone becomes a full, independent VM
+
+### Example: Mark VM as Template
+```bash
+# First, prepare your VM (install OS, apps, configure)
+# Then mark it as a template:
+update_vm_config(node="pve2", vmid=100, config={"template": 1})
+```
+
+### Example: Clone from Template
+```bash
+# Clone the template to create a new VM
+clone_vm(node="pve2", source_vmid=100, new_vmid=200, new_name="web-server-01", full=true)
+```
 
 ## Typical Workflows
 
@@ -86,6 +124,9 @@ Use this skill when you need to:
 - "Start the web server VM"
 - "Create a new VM with 4 cores and 8GB RAM"
 - "Clone VM 100 to create a test copy"
+- "Mark VM 100 as a template for future deployments"
+- "Clone the template VM 100 to create web-server-01"
+- "Update VM 105 to use 16GB RAM"
 - "Suspend VM 200 for maintenance"
 - "Resume VM 200 to continue operations"
 - "Gracefully shutdown VM 150"

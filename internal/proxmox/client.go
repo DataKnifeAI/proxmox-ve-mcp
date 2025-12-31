@@ -497,12 +497,12 @@ func (c *Client) CreateContainer(ctx context.Context, nodeName string, config ma
 // Params: vmid, hostname, storage, memory, cores, ostype (e.g., "debian"), osversion
 func (c *Client) CreateContainerFull(ctx context.Context, nodeName string, containerID int, hostname string, storage string, memory int, cores int, ostype string) (interface{}, error) {
 	config := map[string]interface{}{
-		"vmid":      containerID,
-		"hostname":  hostname,
-		"storage":   storage,
-		"memory":    memory,
-		"cores":     cores,
-		"ostype":    ostype,
+		"vmid":     containerID,
+		"hostname": hostname,
+		"storage":  storage,
+		"memory":   memory,
+		"cores":    cores,
+		"ostype":   ostype,
 	}
 	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/lxc", nodeName), config)
 }
@@ -580,11 +580,21 @@ func (c *Client) CreateVMFull(ctx context.Context, nodeName string, vmID int, na
 // CloneVM clones an existing virtual machine
 func (c *Client) CloneVM(ctx context.Context, nodeName string, sourceVMID int, newVMID int, newName string, full bool) (interface{}, error) {
 	config := map[string]interface{}{
-		"vmid":   newVMID,
-		"name":   newName,
-		"full":   full,
+		"vmid": newVMID,
+		"name": newName,
+		"full": full,
 	}
 	return c.doRequest(ctx, "POST", fmt.Sprintf("nodes/%s/qemu/%d/clone", nodeName, sourceVMID), config)
+}
+
+// UpdateVM updates the configuration of an existing virtual machine
+func (c *Client) UpdateVM(ctx context.Context, nodeName string, vmID int, config map[string]interface{}) (interface{}, error) {
+	return c.doRequest(ctx, "PUT", fmt.Sprintf("nodes/%s/qemu/%d/config", nodeName, vmID), config)
+}
+
+// UpdateContainer updates the configuration of an existing LXC container
+func (c *Client) UpdateContainer(ctx context.Context, nodeName string, containerID int, config map[string]interface{}) (interface{}, error) {
+	return c.doRequest(ctx, "PUT", fmt.Sprintf("nodes/%s/lxc/%d/config", nodeName, containerID), config)
 }
 
 // ============ USER & ACCESS MANAGEMENT ============

@@ -4,10 +4,16 @@
 This document compares the current tool implementations with the complete Proxmox API specification to identify missing tools that could be added to enhance functionality.
 
 ## Current Implementation Summary
-- **Total Tools**: 17
-- **Read-only Tools**: 5 (query/monitoring)
-- **Control Tools**: 12 (action/management)
-- **Categories**: 4
+- **Total Tools**: 62
+- **Read-only Tools**: 20 (query/monitoring)
+- **Control Tools**: 42 (action/management)
+- **Categories**: 6
+
+## Recently Implemented Tools (Phase 2)
+- ✅ `update_vm_config` - Update VM configuration including marking as template
+- ✅ `update_container_config` - Update container configuration
+- ✅ `get_vm_config` - Get full VM configuration
+- ✅ `get_container_config` - Get full container configuration
 
 ### Current Tools by Category
 
@@ -80,12 +86,12 @@ This document compares the current tool implementations with the complete Proxmo
 **Estimated Complexity**: Medium-High
 
 #### Missing Tools:
-- `get_vm_config` - Get full VM configuration details
-- `update_vm_config` - Modify VM configuration (CPU, memory, disks, etc.)
+- ✅ `get_vm_config` - Get full VM configuration details (IMPLEMENTED)
+- ✅ `update_vm_config` - Modify VM configuration (CPU, memory, disks, etc.) (IMPLEMENTED)
 - `get_vm_console` - Get console access information
-- `create_vm` - Create a new virtual machine
-- `delete_vm` - Delete a virtual machine
-- `clone_vm` - Clone an existing VM
+- ✅ `create_vm` - Create a new virtual machine (IMPLEMENTED)
+- ✅ `delete_vm` - Delete a virtual machine (IMPLEMENTED)
+- ✅ `clone_vm` - Clone an existing VM (IMPLEMENTED)
 - `create_vm_snapshot` - Create a VM snapshot
 - `list_vm_snapshots` - List snapshots for a VM
 - `delete_vm_snapshot` - Remove a snapshot
@@ -111,11 +117,11 @@ This document compares the current tool implementations with the complete Proxmo
 **Estimated Complexity**: Medium-High
 
 #### Missing Tools:
-- `get_container_config` - Get container configuration details
-- `update_container_config` - Modify container settings
-- `create_container` - Create a new container
-- `delete_container` - Delete a container
-- `clone_container` - Clone an existing container
+- ✅ `get_container_config` - Get container configuration details (IMPLEMENTED)
+- ✅ `update_container_config` - Modify container settings (IMPLEMENTED)
+- ✅ `create_container` - Create a new container (IMPLEMENTED)
+- ✅ `delete_container` - Delete a container (IMPLEMENTED)
+- ✅ `clone_container` - Clone an existing container (IMPLEMENTED)
 - `create_container_snapshot` - Create container snapshot
 - `list_container_snapshots` - List container snapshots
 - `delete_container_snapshot` - Remove a snapshot
