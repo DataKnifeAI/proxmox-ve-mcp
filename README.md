@@ -47,7 +47,8 @@ Then edit `.env` with your Proxmox credentials:
 ```bash
 PROXMOX_BASE_URL=https://your-proxmox-server.com:8006
 PROXMOX_API_USER=root@pam
-PROXMOX_API_TOKEN=proxmox_mcp_token=your-token-secret-here
+PROXMOX_API_TOKEN_ID=proxmox_mcp_token
+PROXMOX_API_TOKEN_SECRET=your-token-secret-here
 PROXMOX_SKIP_SSL_VERIFY=false
 LOG_LEVEL=info
 ```
@@ -58,10 +59,12 @@ LOG_LEVEL=info
 2. Go to Datacenter → Permissions → API Tokens
 3. Create a new API token with appropriate permissions
 4. Note the username (e.g., `root@pam`) for `PROXMOX_API_USER`
-5. Note the token ID and secret (e.g., `tokenid=secret`) for `PROXMOX_API_TOKEN`
+5. Note the token ID (e.g., `proxmox_mcp_token`) for `PROXMOX_API_TOKEN_ID`
+6. Note the token secret (the generated password) for `PROXMOX_API_TOKEN_SECRET`
    - The full token is combined as: `user@realm!tokenid=secret`
    - `PROXMOX_API_USER`: The user part (e.g., `root@pam`)
-   - `PROXMOX_API_TOKEN`: The token ID and secret part (e.g., `tokenid=secret`)
+   - `PROXMOX_API_TOKEN_ID`: The token ID part (e.g., `proxmox_mcp_token`)
+   - `PROXMOX_API_TOKEN_SECRET`: The secret part only (no special characters)
 
 ### Running the Server
 
@@ -173,7 +176,8 @@ See [.github/skills](.github/skills) for detailed skill documentation.
 |----------|-------------|---------|
 | `PROXMOX_BASE_URL` | Proxmox server URL with port | Required |
 | `PROXMOX_API_USER` | Proxmox API user (e.g., root@pam) | Required |
-| `PROXMOX_API_TOKEN` | Proxmox API token (tokenid=secret) | Required |
+| `PROXMOX_API_TOKEN_ID` | Proxmox API token ID | Required |
+| `PROXMOX_API_TOKEN_SECRET` | Proxmox API token secret | Required |
 | `PROXMOX_SKIP_SSL_VERIFY` | Skip SSL certificate verification | false |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | info |
 
