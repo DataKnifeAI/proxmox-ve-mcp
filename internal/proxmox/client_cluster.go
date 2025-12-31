@@ -37,18 +37,14 @@ func (c *Client) GetNode(ctx context.Context, nodeName string) (*NodeStatus, err
 }
 
 // GetClusterStatus retrieves cluster-wide status information
-func (c *Client) GetClusterStatus(ctx context.Context) (map[string]interface{}, error) {
+func (c *Client) GetClusterStatus(ctx context.Context) (interface{}, error) {
 	data, err := c.doRequest(ctx, "GET", "cluster/status", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	status, ok := data.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("unexpected cluster status format")
-	}
-
-	return status, nil
+	// cluster/status returns an array of nodes
+	return data, nil
 }
 
 // GetStorage retrieves a list of all storage devices in the cluster

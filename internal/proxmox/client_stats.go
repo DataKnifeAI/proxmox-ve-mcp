@@ -35,15 +35,10 @@ func (c *Client) GetContainerStats(ctx context.Context, nodeName string, contain
 	return stats, nil
 }
 
-// GetNodeStats retrieves node resource statistics over time
+// GetNodeStats retrieves node resource status (current stats)
 func (c *Client) GetNodeStats(ctx context.Context, nodeName string, timeframe string) (interface{}, error) {
-	// timeframe can be "hour", "day", "week", "month", "year"
-	params := map[string]interface{}{}
-	if timeframe != "" {
-		params["timeframe"] = timeframe
-	}
-
-	data, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/rrddata", nodeName), params)
+	// Use status endpoint for current node statistics
+	data, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/status", nodeName), nil)
 	if err != nil {
 		return nil, err
 	}
