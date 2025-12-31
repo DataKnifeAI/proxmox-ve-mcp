@@ -1,12 +1,12 @@
 # Proxmox VE MCP - Complete Tools Reference
 
-**Total Tools**: 81  
-**Last Updated**: Phase 4 Implementation (December 2025)  
+**Total Tools**: 85  
+**Last Updated**: Pool Management CRUD Tools (December 2025)  
 **Status**: ✅ All tools implemented and tested
 
 ---
 
-## 📊 Tools by Category (81 Total)
+## 📊 Tools by Category (85 Total)
 
 ### Cluster & Node Management (11 tools)
 - `get_nodes` - Get all nodes in the cluster
@@ -115,9 +115,13 @@
 - `delete_api_token` - Delete an API token
 - `set_acl` - Create/update ACL entries
 
-### Resource Pool Management (2 tools)
+### Resource Pool Management (6 tools)
 - `list_pools` - List all resource pools
 - `get_pool` - Get details for a specific pool
+- `create_pool` - Create a new resource pool
+- `update_pool` - Update an existing resource pool
+- `delete_pool` - Delete a resource pool
+- `get_pool_members` - Get members of a resource pool
 
 ### Performance & Statistics (3 tools)
 - `get_node_stats` - Get node performance statistics
@@ -313,6 +317,47 @@ Parameters:
   - poolid (required): Pool ID
 
 Returns: Pool object with full details
+```
+
+#### `create_pool`
+Create a new resource pool.
+```
+Parameters:
+  - poolid (required): Pool ID
+  - comment (optional): Pool description
+  - members (optional): Array of resource identifiers (VMs, containers, etc.)
+
+Returns: Success message with pool details
+```
+
+#### `update_pool`
+Update an existing resource pool.
+```
+Parameters:
+  - poolid (required): Pool ID to update
+  - comment (optional): New pool description
+  - members (optional): Array of resource identifiers to update
+  - delete (optional): Boolean to delete specified members
+
+Returns: Success message with updated pool details
+```
+
+#### `delete_pool`
+Delete a resource pool.
+```
+Parameters:
+  - poolid (required): Pool ID to delete
+
+Returns: Success message confirming deletion
+```
+
+#### `get_pool_members`
+Get members of a resource pool.
+```
+Parameters:
+  - poolid (required): Pool ID
+
+Returns: Array of member objects (VMs, containers, storage, etc.)
 ```
 
 ---

@@ -4,9 +4,9 @@
 This document compares the current tool implementations with the complete Proxmox API specification to identify missing tools that could be added to enhance functionality.
 
 ## Current Implementation Summary
-- **Total Tools**: 68
-- **Read-only Tools**: 26 (query/monitoring)
-- **Control Tools**: 42 (action/management)
+- **Total Tools**: 85
+- **Read-only Tools**: 28 (query/monitoring)
+- **Control Tools**: 57 (action/management)
 - **Categories**: 9
 
 ## Recently Implemented Tools (Phase 3 - COMPLETED)
@@ -657,6 +657,63 @@ The MCP server in `internal/mcp/server.go` needs to:
 
 ---
 
+## Pool Management CRUD Implementation (4 tools - COMPLETED ✓)
+
+### Overview
+Added comprehensive pool management CRUD (Create, Read, Update, Delete) operations to the existing pool monitoring tools (`list_pools` and `get_pool`). This enables complete pool lifecycle management for multi-tenant infrastructure.
+
+### Implemented Tools
+1. **`create_pool`** - Create a new resource pool with optional members
+   - Parameters: poolid (required), comment (optional), members (optional array)
+   - Returns: Success message with pool details
+   - Use case: Initialize new resource pools for different departments/projects
+
+2. **`update_pool`** - Modify existing resource pool settings and members
+   - Parameters: poolid (required), comment (optional), members (optional), delete (optional boolean)
+   - Returns: Updated pool details
+   - Use case: Add/remove resources from pools, update descriptions, manage multi-tenant assignments
+
+3. **`delete_pool`** - Remove resource pool from Proxmox
+   - Parameters: poolid (required)
+   - Returns: Success confirmation
+   - Use case: Clean up unused resource pools, decommission tenant infrastructure
+
+4. **`get_pool_members`** - List all members/resources within a pool
+   - Parameters: poolid (required)
+   - Returns: Array of member objects (VMs, containers, storage, etc.)
+   - Use case: Audit resource allocation, verify multi-tenant segregation
+
+### Implementation Details
+- **Language**: Go
+- **Framework**: Model Context Protocol (MCP)
+- **Client Integration**: Wrapped existing client methods from `internal/proxmox/client_pools.go`
+- **Handler Functions**: Added 4 new handlers to `internal/mcp/server.go`
+- **Tool Registrations**: Added 4 tool registrations to `registerTools()` method
+- **Parameter Pattern**: Used JSON marshal/unmarshal for array parameters (members)
+- **Error Handling**: Comprehensive error reporting with detailed messages
+- **Compatibility**: Consistent with Phase 1-4 implementation patterns
+
+### Metrics
+- **Lines Added**: 127 lines to server.go (handlers)
+- **Build Status**: ✅ Successful compilation
+- **Binary Size**: 11MB (consistent with previous phases)
+- **Registration Count**: Updated from 81 to 85 tools total
+- **Handler Pattern**: Followed established error-first pattern with JSON responses
+
+### Verification Checklist
+- [x] All 4 handler functions created
+- [x] Parameter extraction and validation working
+- [x] Client methods successfully wrapped
+- [x] Array parameter handling (members) implemented
+- [x] JSON response formatting consistent
+- [x] Error handling comprehensive
+- [x] Code compiles without errors
+- [x] Git commit created with detailed message
+- [x] Documentation updated (TOOLS_QUICK_REFERENCE.md, README.md)
+- [x] Tool count verified (85 total)
+
+---
+
 ## Metrics & Success Criteria
 
 - [x] All Priority 1-2 tools implemented (Phases 1-4 Complete)
@@ -668,13 +725,16 @@ The MCP server in `internal/mcp/server.go` needs to:
 
 ---
 
-## What's Next - Phase 5 (Optional)
+## What's Next - Phase 5+ (Optional)
 
+### Completed in This Session
+- ✅ **Pool Management (6 tools total)**: list_pools, get_pool, create_pool, update_pool, delete_pool, get_pool_members
+
+### Future Optional Additions
 If continuing implementation, highest value additions would be:
-1. **Pool Management (5 tools)**: create_pool, update_pool, delete_pool, add_pool_members, remove_pool_members
-2. **Firewall/Network (7 tools)**: create_firewall_rule, delete_firewall_rule, list_firewall_rules, create_vlan, update_vlan, delete_vlan
-3. **Cluster Management (8 tools)**: add_node_to_cluster, remove_node_from_cluster, HA management, replication setup
-4. **API Tokens (1 tool)**: list_api_tokens for enumeration
+1. **Firewall/Network (7 tools)**: create_firewall_rule, delete_firewall_rule, list_firewall_rules, create_vlan, update_vlan, delete_vlan
+2. **Cluster Management (8 tools)**: add_node_to_cluster, remove_node_from_cluster, HA management, replication setup
+3. **API Tokens (1 tool)**: list_api_tokens for enumeration
 
 ---
 

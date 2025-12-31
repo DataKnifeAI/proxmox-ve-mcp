@@ -4,13 +4,13 @@ Model Context Protocol (MCP) server for Proxmox Virtual Environment infrastructu
 
 **Focused on:** Comprehensive Proxmox infrastructure management including cluster operations, VM/container lifecycle, user access control, backup/restore operations, storage management, and task monitoring.
 
-⚠️ **Early Development Warning**: This project is in active development (Phase 4 complete). While tested and functional, use with caution in production environments.
+⚠️ **Early Development Warning**: This project is in active development (Phase 4 complete + Pool CRUD). While tested and functional, use with caution in production environments.
 
 ⚠️ **Prompt Injection Risk**: You are responsible for guarding against prompt injection when using these tools. Exercise extreme caution or use MCP tools only on systems and data you trust.
 
 ## Features
 
-- **81 management tools** across 8 operational categories (Phase 4 complete)
+- **85 management tools** across 8 operational categories (Phase 4 + Pool CRUD complete)
 - **User & Access Management**: 15 tools for users, groups, roles, and ACLs
 - **Backup & Restore Operations**: 6 tools for VM/container backup creation, management, and restoration
 - **VM Creation & Cloning**: 4 tools for creating, cloning, and configuring virtual machines
@@ -176,13 +176,14 @@ curl -X POST http://localhost:8000/mcp \
 
 ## Implementation Status
 
-**Phase 4 Complete** - 81 tools fully implemented:
+**Phase 4 Complete + Pool CRUD** - 85 tools fully implemented:
 - ✅ Phase 1: Cluster & VM/Container basics (40 tools)
 - ✅ Phase 2: User management & advanced operations (20 tools)
 - ✅ Phase 3: Resource pools & task monitoring (8 tools)
 - ✅ Phase 4: Storage, task, and node management (13 tools)
+- ✅ Pool Management: CRUD operations (4 tools)
 
-**Next Phase (Optional)**: Pool CRUD operations, firewall/network rules, cluster management, API token enumeration
+**Next Phase (Optional)**: Firewall/network rules, cluster management, API token enumeration
 
 ## Skills & Capabilities
 
