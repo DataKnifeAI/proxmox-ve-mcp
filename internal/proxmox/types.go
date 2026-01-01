@@ -141,11 +141,11 @@ type Group struct {
 
 // Role represents a Proxmox role
 type Role struct {
-	RoleID    string   `json:"roleid"`
-	Privs     []string `json:"privs,omitempty"`
-	Special   bool     `json:"special,omitempty"`
-	Comment   string   `json:"comment,omitempty"`
-	AutoGenID bool     `json:"autogenid,omitempty"`
+	RoleID    string `json:"roleid"`
+	Privs     string `json:"privs,omitempty"`
+	Special   int    `json:"special,omitempty"`
+	Comment   string `json:"comment,omitempty"`
+	AutoGenID int    `json:"autogenid,omitempty"`
 }
 
 // APIToken represents an API token

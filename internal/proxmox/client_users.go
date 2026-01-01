@@ -181,17 +181,17 @@ func (c *Client) ListACLs(ctx context.Context) ([]ACLEntry, error) {
 // SetACL creates or updates an ACL entry
 func (c *Client) SetACL(ctx context.Context, path, role, userID, groupID, tokenID string, propagate bool) (interface{}, error) {
 	body := map[string]interface{}{
-		"path": path,
-		"role": role,
+		"path":  path,
+		"roles": role,
 	}
 	if userID != "" {
-		body["user"] = userID
+		body["users"] = userID
 	}
 	if groupID != "" {
-		body["group"] = groupID
+		body["groups"] = groupID
 	}
 	if tokenID != "" {
-		body["token"] = tokenID
+		body["tokens"] = tokenID
 	}
 	body["propagate"] = boolToInt(propagate)
 
