@@ -114,18 +114,23 @@ func (c *Client) ApplyNodeUpdates(ctx context.Context, nodeName string) (interfa
 }
 
 // GetNodeNetwork retrieves detailed network configuration
-func (c *Client) GetNodeNetwork(ctx context.Context, nodeName string) (map[string]interface{}, error) {
+func (c *Client) GetNodeNetwork(ctx context.Context, nodeName string) (interface{}, error) {
 	data, err := c.doRequest(ctx, "GET", fmt.Sprintf("nodes/%s/network", nodeName), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	network, ok := data.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("unexpected network format")
+	// API returns array of network interfaces
+	if _, ok := data.([]interface{}); ok {
+		return data, nil
 	}
 
-	return network, nil
+	// Also accept map format for backwards compatibility
+	if _, ok := data.(map[string]interface{}); ok {
+		return data, nil
+	}
+
+	return nil, fmt.Errorf("unexpected network format: expected array or map")
 }
 
 // GetNodeDNS retrieves DNS configuration

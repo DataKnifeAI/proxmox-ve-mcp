@@ -134,17 +134,28 @@ func (c *Client) GetNetworkInterfaces(ctx context.Context, nodeName string) (map
 		return nil, fmt.Errorf("get network interfaces: %w", err)
 	}
 
-	data, ok := resp.(map[string]interface{})
-	if !ok {
-		return map[string]NetworkInterface{}, nil
+	interfaces := make(map[string]NetworkInterface)
+
+	// Handle array response (new format from Proxmox API)
+	if dataArray, ok := resp.([]interface{}); ok {
+		for _, item := range dataArray {
+			bytes, _ := json.Marshal(item)
+			var iface NetworkInterface
+			if err := json.Unmarshal(bytes, &iface); err == nil && iface.Iface != "" {
+				interfaces[iface.Iface] = iface
+			}
+		}
+		return interfaces, nil
 	}
 
-	interfaces := make(map[string]NetworkInterface)
-	for key, item := range data {
-		bytes, _ := json.Marshal(item)
-		var iface NetworkInterface
-		if err := json.Unmarshal(bytes, &iface); err == nil {
-			interfaces[key] = iface
+	// Handle map response (old format, for backwards compatibility)
+	if data, ok := resp.(map[string]interface{}); ok {
+		for key, item := range data {
+			bytes, _ := json.Marshal(item)
+			var iface NetworkInterface
+			if err := json.Unmarshal(bytes, &iface); err == nil {
+				interfaces[key] = iface
+			}
 		}
 	}
 
