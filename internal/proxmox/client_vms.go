@@ -100,10 +100,11 @@ func (c *Client) CreateVMFull(ctx context.Context, nodeName string, vmID int, na
 
 // DeleteVM deletes a virtual machine
 func (c *Client) DeleteVM(ctx context.Context, nodeName string, vmID int, force bool) (interface{}, error) {
-	data := map[string]interface{}{
-		"force": force,
+	endpoint := fmt.Sprintf("nodes/%s/qemu/%d", nodeName, vmID)
+	if force {
+		endpoint += "?force=1"
 	}
-	return c.doRequest(ctx, "DELETE", fmt.Sprintf("nodes/%s/qemu/%d", nodeName, vmID), data)
+	return c.doRequest(ctx, "DELETE", endpoint, nil)
 }
 
 // CloneVM clones an existing virtual machine
