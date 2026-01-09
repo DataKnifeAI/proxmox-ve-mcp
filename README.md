@@ -276,6 +276,10 @@ This MCP implements comprehensive Proxmox VE infrastructure automation:
 | `PROXMOX_API_TOKEN_SECRET` | Proxmox API token secret | Required |
 | `PROXMOX_SKIP_SSL_VERIFY` | Skip SSL certificate verification | false |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | info |
+| `MCP_ENABLE_ADVANCED_TOOLS` | Enable advanced tools (snapshots, backups, HA, firewall, etc.) | false |
+| `MCP_TOOLS_MODE` | Tool mode: `default` (common tools only) or `all` (all tools) | default |
+
+**Tool Categories**: This server uses lazy loading to reduce LLM confusion. By default, only ~40-50 common tools are enabled. Set `MCP_ENABLE_ADVANCED_TOOLS=true` to enable all 107 tools. See [Tool Categories Documentation](docs/TOOL_CATEGORIES.md) for details.
 
 ## API Reference
 

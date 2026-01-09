@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -47,25 +49,83 @@ func getArrayLength(v interface{}) int {
 	return 0
 }
 
-func (s *Server) registerTools() {
-	tools := []server.ServerTool{}
+// ToolCategory represents the category/priority of a tool
+type ToolCategory string
 
-	// Helper to create tool definitions
-	addTool := func(name, desc string, handler server.ToolHandlerFunc, properties map[string]any) {
-		tools = append(tools, server.ServerTool{
-			Tool: mcp.Tool{
-				Name:        name,
-				Description: desc,
-				InputSchema: mcp.ToolInputSchema{
-					Type:       "object",
-					Properties: properties,
-				},
-			},
-			Handler: handler,
-		})
+const (
+	CategoryDefault  ToolCategory = "default"  // Common tools enabled by default
+	CategoryAdvanced ToolCategory = "advanced" // Advanced tools require explicit enablement
+)
+
+// ToolDefinition holds tool metadata for lazy loading
+type ToolDefinition struct {
+	Name        string
+	Description string
+	Handler     server.ToolHandlerFunc
+	Properties  map[string]any
+	Category    ToolCategory
+}
+
+func (s *Server) registerTools() {
+	// Check environment variables for tool filtering
+	enableAdvanced := os.Getenv("MCP_ENABLE_ADVANCED_TOOLS") == "true"
+	toolMode := strings.ToLower(os.Getenv("MCP_TOOLS_MODE"))
+	
+	// If mode is "all", enable everything
+	if toolMode == "all" {
+		enableAdvanced = true
+	}
+	
+	// If mode is "default", disable advanced
+	if toolMode == "default" {
+		enableAdvanced = false
 	}
 
-	// Cluster and Node Management
+	tools := []server.ServerTool{}
+	toolDefs := []ToolDefinition{}
+
+	// Helper to create tool definitions (lazy - not registered yet)
+	// Default category is CategoryDefault unless specified
+	addToolDefault := func(name, desc string, handler server.ToolHandlerFunc, properties map[string]any) {
+		toolDefs = append(toolDefs, ToolDefinition{
+			Name:        name,
+			Description: desc,
+			Handler:     handler,
+			Properties:  properties,
+			Category:    CategoryDefault,
+		})
+	}
+	addToolAdvanced := func(name, desc string, handler server.ToolHandlerFunc, properties map[string]any) {
+		toolDefs = append(toolDefs, ToolDefinition{
+			Name:        name,
+			Description: desc,
+			Handler:     handler,
+			Properties:  properties,
+			Category:    CategoryAdvanced,
+		})
+	}
+	// Alias for backward compatibility - defaults to default category
+	addTool := addToolDefault
+
+	// Helper to register a tool (only if it should be enabled)
+	registerTool := func(def ToolDefinition) {
+		if def.Category == CategoryDefault || enableAdvanced {
+			tools = append(tools, server.ServerTool{
+				Tool: mcp.Tool{
+					Name:        def.Name,
+					Description: def.Description,
+					InputSchema: mcp.ToolInputSchema{
+						Type:       "object",
+						Properties: def.Properties,
+					},
+				},
+				Handler: def.Handler,
+			})
+		}
+	}
+
+	// ============ DEFAULT TOOLS (Common operations) ============
+	// Cluster and Node Management - Default
 	addTool("get_nodes", "Get all nodes in the Proxmox cluster", s.getNodes, map[string]any{})
 	addTool("get_node_status", "Get detailed status information for a specific node", s.getNodeStatus, map[string]any{
 		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
@@ -189,42 +249,42 @@ func (s *Server) registerTools() {
 		"online":      map[string]any{"type": "boolean", "description": "Perform live migration (optional)"},
 	})
 
-	// Container Management - Query
-	addTool("get_containers", "Get all containers on a specific node", s.getContainers, map[string]any{
+	// Container Management - Query (Advanced)
+	addToolAdvanced("get_containers", "Get all containers on a specific node", s.getContainers, map[string]any{
 		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
 	})
-	addTool("get_container_status", "Get detailed status of a specific container", s.getContainerStatus, map[string]any{
+	addToolAdvanced("get_container_status", "Get detailed status of a specific container", s.getContainerStatus, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 	})
 
-	// Container Management - Control
-	addTool("start_container", "Start an LXC container", s.startContainer, map[string]any{
+	// Container Management - Control (Advanced)
+	addToolAdvanced("start_container", "Start an LXC container", s.startContainer, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 	})
-	addTool("stop_container", "Stop an LXC container (immediate)", s.stopContainer, map[string]any{
+	addToolAdvanced("stop_container", "Stop an LXC container (immediate)", s.stopContainer, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 	})
-	addTool("shutdown_container", "Gracefully shutdown an LXC container", s.shutdownContainer, map[string]any{
+	addToolAdvanced("shutdown_container", "Gracefully shutdown an LXC container", s.shutdownContainer, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 	})
-	addTool("reboot_container", "Reboot an LXC container", s.rebootContainer, map[string]any{
+	addToolAdvanced("reboot_container", "Reboot an LXC container", s.rebootContainer, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 	})
-	addTool("get_container_config", "Get full configuration of a container", s.getContainerConfig, map[string]any{
+	addToolAdvanced("get_container_config", "Get full configuration of a container", s.getContainerConfig, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 	})
-	addTool("delete_container", "Delete an LXC container", s.deleteContainer, map[string]any{
+	addToolAdvanced("delete_container", "Delete an LXC container", s.deleteContainer, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 		"force":        map[string]any{"type": "boolean", "description": "Force delete even if running (optional)"},
 	})
-	addTool("create_container", "Create a new LXC container", s.createContainer, map[string]any{
+	addToolAdvanced("create_container", "Create a new LXC container", s.createContainer, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID (must be unique)"},
 		"hostname":     map[string]any{"type": "string", "description": "Container hostname"},
@@ -233,7 +293,7 @@ func (s *Server) registerTools() {
 		"cores":        map[string]any{"type": "integer", "description": "CPU cores (default: 1)"},
 		"ostype":       map[string]any{"type": "string", "description": "OS type (default: debian)"},
 	})
-	addTool("create_container_advanced", "Create a container with advanced configuration options", s.createContainerAdvanced, map[string]any{
+	addToolAdvanced("create_container_advanced", "Create a container with advanced configuration options", s.createContainerAdvanced, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID (must be unique)"},
 		"hostname":     map[string]any{"type": "string", "description": "Container hostname (optional)"},
@@ -244,35 +304,35 @@ func (s *Server) registerTools() {
 		"net0":         map[string]any{"type": "string", "description": "Network configuration (e.g., name=eth0,bridge=vmbr0, optional)"},
 		"rootfs":       map[string]any{"type": "string", "description": "Root filesystem (e.g., local-lvm:10, optional)"},
 	})
-	addTool("clone_container", "Clone an existing LXC container", s.cloneContainer, map[string]any{
+	addToolAdvanced("clone_container", "Clone an existing LXC container", s.cloneContainer, map[string]any{
 		"node_name":           map[string]any{"type": "string", "description": "Name of the node"},
 		"source_container_id": map[string]any{"type": "integer", "description": "Source container ID to clone from"},
 		"new_container_id":    map[string]any{"type": "integer", "description": "New container ID (must be unique)"},
 		"new_hostname":        map[string]any{"type": "string", "description": "New container hostname"},
 		"full":                map[string]any{"type": "boolean", "description": "Full clone (default: true) vs linked clone"},
 	})
-	addTool("update_container_config", "Update LXC container configuration", s.updateContainerConfig, map[string]any{
+	addToolAdvanced("update_container_config", "Update LXC container configuration", s.updateContainerConfig, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 		"config":       map[string]any{"type": "object", "description": "Configuration to update"},
 	})
-	addTool("create_container_snapshot", "Create a snapshot of an LXC container", s.createContainerSnapshot, map[string]any{
+	addToolAdvanced("create_container_snapshot", "Create a snapshot of an LXC container", s.createContainerSnapshot, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
 		"description":  map[string]any{"type": "string", "description": "Snapshot description (optional)"},
 	})
-	addTool("list_container_snapshots", "List all snapshots for an LXC container", s.listContainerSnapshots, map[string]any{
+	addToolAdvanced("list_container_snapshots", "List all snapshots for an LXC container", s.listContainerSnapshots, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 	})
-	addTool("delete_container_snapshot", "Delete a snapshot from an LXC container", s.deleteContainerSnapshot, map[string]any{
+	addToolAdvanced("delete_container_snapshot", "Delete a snapshot from an LXC container", s.deleteContainerSnapshot, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
 		"force":        map[string]any{"type": "boolean", "description": "Force delete (optional)"},
 	})
-	addTool("restore_container_snapshot", "Restore an LXC container from a snapshot", s.restoreContainerSnapshot, map[string]any{
+	addToolAdvanced("restore_container_snapshot", "Restore an LXC container from a snapshot", s.restoreContainerSnapshot, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
@@ -290,7 +350,7 @@ func (s *Server) registerTools() {
 	// User Management - Control
 	addTool("create_user", "Create a new user", s.createUser, map[string]any{
 		"userid":   map[string]any{"type": "string", "description": "User ID (e.g., user@pve)"},
-		"password": map[string]any{"type": "string", "description": "Initial password"},
+		"password": map[string]any{"type": "string", "description": "Initial password (optional - will attempt to set after creation, may fail with API token for PAM realm, works with session ticket)"},
 		"email":    map[string]any{"type": "string", "description": "Email address (optional)"},
 		"comment":  map[string]any{"type": "string", "description": "Comment (optional)"},
 	})
@@ -356,7 +416,7 @@ func (s *Server) registerTools() {
 		"backup_id": map[string]any{"type": "string", "description": "Backup ID (optional)"},
 		"notes":     map[string]any{"type": "string", "description": "Backup notes (optional)"},
 	})
-	addTool("create_container_backup", "Create a backup of a container", s.createContainerBackup, map[string]any{
+	addToolAdvanced("create_container_backup", "Create a backup of a container", s.createContainerBackup, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Node name"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 		"storage":      map[string]any{"type": "string", "description": "Storage device ID"},
@@ -372,7 +432,7 @@ func (s *Server) registerTools() {
 		"backup_id": map[string]any{"type": "string", "description": "Backup ID/filename"},
 		"storage":   map[string]any{"type": "string", "description": "Storage device ID"},
 	})
-	addTool("restore_container_backup", "Restore a container from a backup", s.restoreContainerBackup, map[string]any{
+	addToolAdvanced("restore_container_backup", "Restore a container from a backup", s.restoreContainerBackup, map[string]any{
 		"node_name": map[string]any{"type": "string", "description": "Node name"},
 		"backup_id": map[string]any{"type": "string", "description": "Backup ID/filename"},
 		"storage":   map[string]any{"type": "string", "description": "Storage device ID"},
@@ -398,7 +458,7 @@ func (s *Server) registerTools() {
 		"node_name": map[string]any{"type": "string", "description": "Node name"},
 		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
 	})
-	addTool("get_container_stats", "Get performance statistics for a specific container", s.getContainerStats, map[string]any{
+	addToolAdvanced("get_container_stats", "Get performance statistics for a specific container", s.getContainerStats, map[string]any{
 		"node_name":    map[string]any{"type": "string", "description": "Node name"},
 		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
 	})
@@ -445,10 +505,10 @@ func (s *Server) registerTools() {
 		"node_name": map[string]any{"type": "string", "description": "Node name"},
 		"config":    map[string]any{"type": "object", "description": "Configuration to update"},
 	})
-	addTool("reboot_node", "Reboot a node", s.rebootNode, map[string]any{
+	addToolAdvanced("reboot_node", "Reboot a node", s.rebootNode, map[string]any{
 		"node_name": map[string]any{"type": "string", "description": "Node name"},
 	})
-	addTool("shutdown_node", "Gracefully shutdown a node", s.shutdownNode, map[string]any{
+	addToolAdvanced("shutdown_node", "Gracefully shutdown a node", s.shutdownNode, map[string]any{
 		"node_name": map[string]any{"type": "string", "description": "Node name"},
 	})
 	addTool("get_node_disks", "List physical disks in a node", s.getNodeDisks, map[string]any{
@@ -514,15 +574,15 @@ func (s *Server) registerTools() {
 		"sid": map[string]any{"type": "string", "description": "Resource ID to disable HA"},
 	})
 
-	// ============ CLUSTER OPERATIONS ============
-	addTool("get_cluster_config", "Get cluster configuration", s.getClusterConfig, map[string]any{})
-	addTool("get_cluster_nodes_status", "Get status of all nodes in the cluster", s.getClusterNodesStatus, map[string]any{})
-	addTool("add_node_to_cluster", "Add a node to the cluster", s.addNodeToCluster, map[string]any{
+	// ============ CLUSTER OPERATIONS (Advanced) ============
+	addToolAdvanced("get_cluster_config", "Get cluster configuration", s.getClusterConfig, map[string]any{})
+	addToolAdvanced("get_cluster_nodes_status", "Get status of all nodes in the cluster", s.getClusterNodesStatus, map[string]any{})
+	addToolAdvanced("add_node_to_cluster", "Add a node to the cluster", s.addNodeToCluster, map[string]any{
 		"node_name":       map[string]any{"type": "string", "description": "Node name to add"},
 		"cluster_name":    map[string]any{"type": "string", "description": "Cluster name (optional)"},
 		"cluster_network": map[string]any{"type": "string", "description": "Cluster network address (optional)"},
 	})
-	addTool("remove_node_from_cluster", "Remove a node from the cluster", s.removeNodeFromCluster, map[string]any{
+	addToolAdvanced("remove_node_from_cluster", "Remove a node from the cluster", s.removeNodeFromCluster, map[string]any{
 		"node_name": map[string]any{"type": "string", "description": "Node name to remove"},
 	})
 
@@ -554,10 +614,32 @@ func (s *Server) registerTools() {
 		"node_name": map[string]any{"type": "string", "description": "Node name"},
 	})
 
+	// Register tools based on category and environment settings
+	defaultCount := 0
+	advancedCount := 0
+	for _, def := range toolDefs {
+		if def.Category == CategoryDefault || enableAdvanced {
+			registerTool(def)
+			if def.Category == CategoryDefault {
+				defaultCount++
+			} else {
+				advancedCount++
+			}
+		}
+	}
+
+	// Actually register tools with the MCP server
 	for _, tool := range tools {
 		s.server.AddTool(tool.Tool, tool.Handler)
 	}
-	s.logger.Info("Registered 107 tools")
+
+	totalRegistered := len(tools)
+	if enableAdvanced {
+		s.logger.Infof("Registered %d tools (%d default + %d advanced)", totalRegistered, defaultCount, advancedCount)
+	} else {
+		s.logger.Infof("Registered %d default tools (advanced tools disabled - set MCP_ENABLE_ADVANCED_TOOLS=true to enable)", totalRegistered)
+		s.logger.Debugf("Skipped %d advanced tools", len(toolDefs)-totalRegistered)
+	}
 }
 
 // ServeStdio starts the MCP server with stdio transport
@@ -1939,6 +2021,11 @@ func (s *Server) getUser(ctx context.Context, request mcp.CallToolRequest) (*mcp
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to get user: %v", err)), nil
 	}
 
+	// Ensure userid is set (Proxmox API doesn't always return it in the response)
+	if user.UserID == "" {
+		user.UserID = userID
+	}
+
 	return mcp.NewToolResultJSON(user)
 }
 
@@ -1952,10 +2039,6 @@ func (s *Server) createUser(ctx context.Context, request mcp.CallToolRequest) (*
 	}
 
 	password := request.GetString("password", "")
-	if password == "" {
-		return mcp.NewToolResultError("password parameter is required"), nil
-	}
-
 	email := request.GetString("email", "")
 	comment := request.GetString("comment", "")
 
@@ -1964,10 +2047,17 @@ func (s *Server) createUser(ctx context.Context, request mcp.CallToolRequest) (*
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to create user: %v", err)), nil
 	}
 
+	message := "User created successfully"
+	if password != "" {
+		// Check if password was actually set by checking if there was an error
+		// The client will attempt to set password, but it may fail with API tokens
+		message += " (Password setting attempted - may fail with API token for PAM realm, works with session ticket)"
+	}
+
 	return mcp.NewToolResultJSON(map[string]interface{}{
 		"action":  "create",
 		"userid":  userID,
-		"message": "User created successfully",
+		"message": message,
 		"result":  result,
 	})
 }
