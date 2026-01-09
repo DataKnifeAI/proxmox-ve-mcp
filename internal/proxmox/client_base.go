@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -48,26 +49,43 @@ func NewClient(baseURL, apiToken string, skipSSLVerify bool) *Client {
 
 // doRequest performs an HTTP request to the Proxmox API
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, body interface{}) (interface{}, error) {
-	url := fmt.Sprintf("%s/api2/json/%s", c.baseURL, endpoint)
+	urlStr := fmt.Sprintf("%s/api2/json/%s", c.baseURL, endpoint)
 
 	var reqBody io.Reader
+	var contentType string
+
+	// Handle query parameters for GET requests
+	if method == "GET" && body != nil {
+		// For GET requests, convert body to query parameters
+		if params, ok := body.(map[string]interface{}); ok {
+			q := url.Values{}
+			for key, value := range params {
+				q.Set(key, fmt.Sprintf("%v", value))
+			}
+			urlStr = urlStr + "?" + q.Encode()
+			body = nil // No body for GET requests with query params
+		}
+	}
+
+	// Handle JSON body for POST/PUT requests
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal request body: %w", err)
 		}
 		reqBody = bytes.NewReader(jsonBody)
+		contentType = "application/json"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
+	req, err := http.NewRequestWithContext(ctx, method, urlStr, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set authentication header
 	req.Header.Set("Authorization", fmt.Sprintf("PVEAPIToken=%s", c.apiToken))
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 
 	resp, err := c.httpClient.Do(req)

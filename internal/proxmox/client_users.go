@@ -36,10 +36,12 @@ func (c *Client) GetUser(ctx context.Context, userID string) (*User, error) {
 }
 
 // CreateUser creates a new user
+// If password is provided, attempts to set it after user creation.
+// Note: Password setting may fail with API tokens (requires session ticket for PAM realm).
 func (c *Client) CreateUser(ctx context.Context, userID, password, email, comment string) (interface{}, error) {
+	// Create user without password first
 	body := map[string]interface{}{
-		"userid":   userID,
-		"password": password,
+		"userid": userID,
 	}
 	if email != "" {
 		body["email"] = email
@@ -48,7 +50,24 @@ func (c *Client) CreateUser(ctx context.Context, userID, password, email, commen
 		body["comment"] = comment
 	}
 
-	return c.doRequest(ctx, "POST", "access/users", body)
+	result, err := c.doRequest(ctx, "POST", "access/users", body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Attempt to set password if provided (may fail with API token, works with session ticket)
+	if password != "" {
+		_, err := c.ChangePassword(ctx, userID, password)
+		if err != nil {
+			// Password setting failed - this is expected with API tokens for PAM realm
+			// User is still created, just without password set
+			c.logger.Warnf("User created but password setting failed (expected with API token for PAM realm): %v", err)
+		} else {
+			c.logger.Debugf("Password set successfully for user %s", userID)
+		}
+	}
+
+	return result, nil
 }
 
 // UpdateUser updates user properties
