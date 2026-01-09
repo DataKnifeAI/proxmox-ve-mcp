@@ -67,12 +67,6 @@ These are the most commonly used operations:
 - `migrate_vm` - Migrate VM
 - `get_vm_stats` - VM statistics
 
-### User Management (Read-only)
-- `list_users` - List users
-- `get_user` - Get user details
-- `list_groups` - List groups
-- `list_roles` - List roles
-- `list_acl` - List ACLs
 
 ### Task Management
 - `get_node_tasks` - Node tasks
@@ -134,7 +128,12 @@ These are specialized operations that are less commonly used:
 - `create_container_backup` - Create container backup
 - `restore_container_backup` - Restore container backup
 
-### User Management (Write Operations)
+### User & Access Management (All Operations)
+- `list_users` - List users
+- `get_user` - Get user details
+- `list_groups` - List groups
+- `list_roles` - List roles
+- `list_acl` - List ACLs
 - `create_user` - Create user
 - `update_user` - Update user
 - `delete_user` - Delete user

@@ -338,23 +338,23 @@ func (s *Server) registerTools() {
 		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
 	})
 
-	// User Management - Query
-	addTool("list_users", "List all users in the system", s.listUsers, map[string]any{})
-	addTool("get_user", "Get details for a specific user", s.getUser, map[string]any{
+	// User Management - Query (Advanced)
+	addToolAdvanced("list_users", "List all users in the system", s.listUsers, map[string]any{})
+	addToolAdvanced("get_user", "Get details for a specific user", s.getUser, map[string]any{
 		"userid": map[string]any{"type": "string", "description": "User ID (e.g., user@pve)"},
 	})
-	addTool("list_groups", "List all groups", s.listGroups, map[string]any{})
-	addTool("list_roles", "List all available roles and their privileges", s.listRoles, map[string]any{})
-	addTool("list_acl", "List all access control list entries", s.listACLs, map[string]any{})
+	addToolAdvanced("list_groups", "List all groups", s.listGroups, map[string]any{})
+	addToolAdvanced("list_roles", "List all available roles and their privileges", s.listRoles, map[string]any{})
+	addToolAdvanced("list_acl", "List all access control list entries", s.listACLs, map[string]any{})
 
-	// User Management - Control
-	addTool("create_user", "Create a new user", s.createUser, map[string]any{
+	// User Management - Control (Advanced)
+	addToolAdvanced("create_user", "Create a new user", s.createUser, map[string]any{
 		"userid":   map[string]any{"type": "string", "description": "User ID (e.g., user@pve)"},
 		"password": map[string]any{"type": "string", "description": "Initial password (optional - will attempt to set after creation, may fail with API token for PAM realm, works with session ticket)"},
 		"email":    map[string]any{"type": "string", "description": "Email address (optional)"},
 		"comment":  map[string]any{"type": "string", "description": "Comment (optional)"},
 	})
-	addTool("update_user", "Update user properties", s.updateUser, map[string]any{
+	addToolAdvanced("update_user", "Update user properties", s.updateUser, map[string]any{
 		"userid":    map[string]any{"type": "string", "description": "User ID"},
 		"email":     map[string]any{"type": "string", "description": "Email address (optional)"},
 		"comment":   map[string]any{"type": "string", "description": "Comment (optional)"},
@@ -363,28 +363,28 @@ func (s *Server) registerTools() {
 		"enable":    map[string]any{"type": "boolean", "description": "Enable/disable user (optional)"},
 		"expire":    map[string]any{"type": "integer", "description": "Expiration Unix timestamp (optional)"},
 	})
-	addTool("delete_user", "Delete a user", s.deleteUser, map[string]any{
+	addToolAdvanced("delete_user", "Delete a user", s.deleteUser, map[string]any{
 		"userid": map[string]any{"type": "string", "description": "User ID"},
 	})
-	addTool("change_password", "Change user password", s.changePassword, map[string]any{
+	addToolAdvanced("change_password", "Change user password", s.changePassword, map[string]any{
 		"userid":   map[string]any{"type": "string", "description": "User ID"},
 		"password": map[string]any{"type": "string", "description": "New password"},
 	})
-	addTool("create_group", "Create a new user group", s.createGroup, map[string]any{
+	addToolAdvanced("create_group", "Create a new user group", s.createGroup, map[string]any{
 		"groupid": map[string]any{"type": "string", "description": "Group ID"},
 		"comment": map[string]any{"type": "string", "description": "Comment (optional)"},
 	})
-	addTool("delete_group", "Delete a user group", s.deleteGroup, map[string]any{
+	addToolAdvanced("delete_group", "Delete a user group", s.deleteGroup, map[string]any{
 		"groupid": map[string]any{"type": "string", "description": "Group ID"},
 	})
-	addTool("create_role", "Create a new role with specific privileges", s.createRole, map[string]any{
+	addToolAdvanced("create_role", "Create a new role with specific privileges", s.createRole, map[string]any{
 		"roleid": map[string]any{"type": "string", "description": "Role ID"},
 		"privs":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "List of privileges"},
 	})
-	addTool("delete_role", "Delete a role", s.deleteRole, map[string]any{
+	addToolAdvanced("delete_role", "Delete a role", s.deleteRole, map[string]any{
 		"roleid": map[string]any{"type": "string", "description": "Role ID"},
 	})
-	addTool("set_acl", "Create or update an access control list entry", s.setACL, map[string]any{
+	addToolAdvanced("set_acl", "Create or update an access control list entry", s.setACL, map[string]any{
 		"path":      map[string]any{"type": "string", "description": "ACL path (e.g., /vms, /nodes)"},
 		"role":      map[string]any{"type": "string", "description": "Role ID"},
 		"userid":    map[string]any{"type": "string", "description": "User ID (optional)"},
@@ -392,13 +392,13 @@ func (s *Server) registerTools() {
 		"tokenid":   map[string]any{"type": "string", "description": "Token ID (optional)"},
 		"propagate": map[string]any{"type": "boolean", "description": "Propagate permissions down tree (optional)"},
 	})
-	addTool("create_api_token", "Create a new API token for a user", s.createAPIToken, map[string]any{
+	addToolAdvanced("create_api_token", "Create a new API token for a user", s.createAPIToken, map[string]any{
 		"userid":  map[string]any{"type": "string", "description": "User ID"},
 		"tokenid": map[string]any{"type": "string", "description": "Token ID"},
 		"expire":  map[string]any{"type": "integer", "description": "Expiration Unix timestamp (optional)"},
 		"privsep": map[string]any{"type": "boolean", "description": "Separate privileges (optional)"},
 	})
-	addTool("delete_api_token", "Delete an API token", s.deleteAPIToken, map[string]any{
+	addToolAdvanced("delete_api_token", "Delete an API token", s.deleteAPIToken, map[string]any{
 		"userid":  map[string]any{"type": "string", "description": "User ID"},
 		"tokenid": map[string]any{"type": "string", "description": "Token ID"},
 	})
