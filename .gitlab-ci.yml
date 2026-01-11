@@ -43,7 +43,7 @@ publish:
     - echo "DOCKER_CONFIG=${DOCKER_CONFIG:-not set (using default ~/.docker)}"
     - test -f ~/.docker/config.json && echo "✓ ~/.docker/config.json exists" || echo "✗ ~/.docker/config.json missing"
     - echo "Config file contents (auth redacted):"
-    - 'cat ~/.docker/config.json | sed ''s/"auth": "[^"]*"/"auth": "***REDACTED***"/g'' || echo "Failed to read config.json"'
+    - cat ~/.docker/config.json | sed 's/"auth": "[^"]*"/"auth": "***REDACTED***"/g' || echo "Failed to read config.json"
     - echo "Registry: $HARBOR_REGISTRY"
     - echo "Username (first 10 chars): ${HARBOR_USERNAME:0:10}..."
     - echo "Password length: ${#HARBOR_PASSWORD} characters"
