@@ -31,13 +31,15 @@ publish:
   before_script:
     - mkdir -p ~/.docker
     - |
+      AUTH_TOKEN=$(printf "%s:%s" "$HARBOR_USERNAME" "$HARBOR_PASSWORD" | base64 | tr -d '\n')
       echo "{
         \"auths\": {
           \"$HARBOR_REGISTRY\": {
-            \"auth\": \"$(printf "%s:%s" "$HARBOR_USERNAME" "$HARBOR_PASSWORD" | base64 | tr -d '\n')\"
+            \"auth\": \"$AUTH_TOKEN\"
           }
         }
       }" > ~/.docker/config.json
+      echo "Debug: AUTH_TOKEN length: ${#AUTH_TOKEN}"
     - |
       echo "=== BuildKit Debug: Checking authentication config ==="
       echo "HOME=$HOME"
