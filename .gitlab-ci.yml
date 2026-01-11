@@ -32,9 +32,17 @@ publish:
     - mkdir -p ~/.docker
     - |
       AUTH_TOKEN=$(printf "%s:%s" "$HARBOR_USERNAME" "$HARBOR_PASSWORD" | base64 | tr -d '\n')
+      echo "Debug: AUTH_TOKEN length: ${#AUTH_TOKEN}"
+      echo "Debug: DOCKER_CONFIG_TEMPLATE is set: $([ -n "$DOCKER_CONFIG_TEMPLATE" ] && echo 'yes' || echo 'no')"
       if [ -n "$DOCKER_CONFIG_TEMPLATE" ]; then
+        echo "Debug: Using DOCKER_CONFIG_TEMPLATE"
+        echo "Debug: Template (first 100 chars): ${DOCKER_CONFIG_TEMPLATE:0:100}"
         echo "$DOCKER_CONFIG_TEMPLATE" | sed "s|AUTH_TOKEN_PLACEHOLDER|$AUTH_TOKEN|g" > ~/.docker/config.json
+        echo "Debug: Config file after sed replacement (first 200 chars):"
+        head -c 200 ~/.docker/config.json || cat ~/.docker/config.json
+        echo ""
       else
+        echo "Debug: Using fallback JSON creation"
         echo "{
           \"auths\": {
             \"$HARBOR_REGISTRY\": {
@@ -43,7 +51,6 @@ publish:
           }
         }" > ~/.docker/config.json
       fi
-      echo "Debug: AUTH_TOKEN length: ${#AUTH_TOKEN}"
     - |
       echo "=== BuildKit Debug: Checking authentication config ==="
       echo "HOME=$HOME"
