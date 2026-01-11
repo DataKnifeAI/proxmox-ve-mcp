@@ -4,7 +4,6 @@ stages:
 
 variables:
   IMAGE_NAME: proxmox-ve-mcp
-  DOCKER_TLS_CERTDIR: "/certs"
 
 build:
   stage: build
