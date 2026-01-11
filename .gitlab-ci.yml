@@ -3,8 +3,6 @@ stages:
   - docker
 
 variables:
-  HARBOR_REGISTRY: harbor.dataknife.net
-  HARBOR_PROJECT: library
   IMAGE_NAME: proxmox-ve-mcp
   DOCKER_TLS_CERTDIR: "/certs"
 
@@ -31,8 +29,6 @@ publish:
     entrypoint: [""]
   dependencies:
     - build
-  variables:
-    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
   before_script:
     - mkdir -p ~/.docker
     - |
