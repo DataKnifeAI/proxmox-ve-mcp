@@ -33,21 +33,22 @@ docker-build:
     - build
   before_script:
     - |
-      echo "=== Docker Login Debug ==="
-      echo "HARBOR_REGISTRY: $HARBOR_REGISTRY"
-      # GitLab expands $$ to $, but shell will expand $library when using double quotes
-      # Use single quotes in assignment to prevent shell variable expansion
-      HARBOR_USER='robot$library+ci-builder'
-      echo "HARBOR_USERNAME (from GitLab var): $HARBOR_USERNAME"
-      echo "HARBOR_USER (hardcoded for now): $HARBOR_USER"
-      echo "HARBOR_PASSWORD length: ${#HARBOR_PASSWORD}"
-      echo "HARBOR_PASSWORD first char: ${HARBOR_PASSWORD:0:1}"
-      echo "HARBOR_PASSWORD last char: ${HARBOR_PASSWORD: -1}"
+      echo "=== Docker Daemon Check ==="
+      echo "Waiting for Docker daemon to be ready..."
+      until docker info > /dev/null 2>&1; do
+        echo "Waiting for Docker daemon..."
+        sleep 1
+      done
+      echo "Docker daemon is ready!"
+      docker info | head -10
       echo ""
+      echo "=== Docker Login ==="
+      echo "HARBOR_REGISTRY: $HARBOR_REGISTRY"
+      HARBOR_USER='robot$library+ci-builder'
+      echo "HARBOR_USER: $HARBOR_USER"
       echo "Attempting docker login..."
       echo "$HARBOR_PASSWORD" | docker login --username "$HARBOR_USER" --password-stdin $HARBOR_REGISTRY || {
         echo "Docker login failed!"
-        echo "Exit code: $?"
         exit 1
       }
       echo "Docker login succeeded!"
