@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -67,579 +66,15 @@ type ToolDefinition struct {
 }
 
 func (s *Server) registerTools() {
-	// Check environment variables for tool filtering
-	enableAdvanced := os.Getenv("MCP_ENABLE_ADVANCED_TOOLS") == "true"
-	toolMode := strings.ToLower(os.Getenv("MCP_TOOLS_MODE"))
-	
-	// If mode is "all", enable everything
-	if toolMode == "all" {
-		enableAdvanced = true
-	}
-	
-	// If mode is "default", disable advanced
-	if toolMode == "default" {
-		enableAdvanced = false
-	}
-
-	tools := []server.ServerTool{}
-	toolDefs := []ToolDefinition{}
-
-	// Helper to create tool definitions (lazy - not registered yet)
-	// Default category is CategoryDefault unless specified
-	addToolDefault := func(name, desc string, handler server.ToolHandlerFunc, properties map[string]any) {
-		toolDefs = append(toolDefs, ToolDefinition{
-			Name:        name,
-			Description: desc,
-			Handler:     handler,
-			Properties:  properties,
-			Category:    CategoryDefault,
-		})
-	}
-	addToolAdvanced := func(name, desc string, handler server.ToolHandlerFunc, properties map[string]any) {
-		toolDefs = append(toolDefs, ToolDefinition{
-			Name:        name,
-			Description: desc,
-			Handler:     handler,
-			Properties:  properties,
-			Category:    CategoryAdvanced,
-		})
-	}
-	// Alias for backward compatibility - defaults to default category
-	addTool := addToolDefault
-
-	// Helper to register a tool (only if it should be enabled)
-	registerTool := func(def ToolDefinition) {
-		if def.Category == CategoryDefault || enableAdvanced {
-			tools = append(tools, server.ServerTool{
-				Tool: mcp.Tool{
-					Name:        def.Name,
-					Description: def.Description,
-					InputSchema: mcp.ToolInputSchema{
-						Type:       "object",
-						Properties: def.Properties,
-					},
-				},
-				Handler: def.Handler,
-			})
-		}
-	}
-
-	// ============ DEFAULT TOOLS (Common operations) ============
-	// Cluster and Node Management - Default
-	addTool("get_nodes", "Get all nodes in the Proxmox cluster", s.getNodes, map[string]any{})
-	addTool("get_node_status", "Get detailed status information for a specific node", s.getNodeStatus, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-	})
-	addTool("get_cluster_resources", "Get all cluster resources (nodes, VMs, containers)", s.getClusterResources, map[string]any{})
-	addTool("get_cluster_status", "Get cluster-wide status information", s.getClusterStatus, map[string]any{})
-
-	// Storage Management
-	addTool("get_storage", "Get all storage devices in the cluster", s.getStorage, map[string]any{})
-	addTool("get_node_storage", "Get storage devices for a specific node", s.getNodeStorage, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-	})
-
-	// Virtual Machine Management - Query
-	addTool("get_vms", "Get all VMs on a specific node", s.getVMs, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-	})
-	addTool("get_vm_status", "Get detailed status of a specific VM", s.getVMStatus, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-
-	// Virtual Machine Management - Control
-	addTool("start_vm", "Start a virtual machine", s.startVM, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addTool("stop_vm", "Stop a virtual machine (immediate)", s.stopVM, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addTool("shutdown_vm", "Gracefully shutdown a virtual machine", s.shutdownVM, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addTool("reboot_vm", "Reboot a virtual machine", s.rebootVM, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addTool("get_vm_config", "Get full configuration of a virtual machine", s.getVMConfig, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addTool("delete_vm", "Delete a virtual machine", s.deleteVM, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-		"force":     map[string]any{"type": "boolean", "description": "Force delete even if running (optional)"},
-	})
-	addTool("suspend_vm", "Suspend (pause) a virtual machine", s.suspendVM, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addTool("resume_vm", "Resume a suspended virtual machine", s.resumeVM, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addTool("create_vm", "Create a new virtual machine", s.createVM, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID (must be unique)"},
-		"name":      map[string]any{"type": "string", "description": "VM name"},
-		"memory":    map[string]any{"type": "integer", "description": "Memory in MB (default: 512)"},
-		"cores":     map[string]any{"type": "integer", "description": "CPU cores (default: 1)"},
-		"sockets":   map[string]any{"type": "integer", "description": "CPU sockets (default: 1)"},
-	})
-	addTool("create_vm_advanced", "Create a VM with advanced configuration options", s.createVMAdvanced, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID (must be unique)"},
-		"name":      map[string]any{"type": "string", "description": "VM name (optional)"},
-		"memory":    map[string]any{"type": "integer", "description": "Memory in MB (optional)"},
-		"cores":     map[string]any{"type": "integer", "description": "CPU cores (optional)"},
-		"sockets":   map[string]any{"type": "integer", "description": "CPU sockets (optional)"},
-		"ide2":      map[string]any{"type": "string", "description": "CD/DVD drive (e.g., /mnt/pve/iso/ubuntu.iso, optional)"},
-		"sata0":     map[string]any{"type": "string", "description": "Primary disk storage (e.g., local-lvm:10, optional)"},
-		"net0":      map[string]any{"type": "string", "description": "Network configuration (e.g., virtio,bridge=vmbr0, optional)"},
-	})
-	addTool("clone_vm", "Clone an existing virtual machine", s.cloneVM, map[string]any{
-		"node_name":   map[string]any{"type": "string", "description": "Name of the node"},
-		"source_vmid": map[string]any{"type": "integer", "description": "Source VM ID to clone from"},
-		"new_vmid":    map[string]any{"type": "integer", "description": "New VM ID (must be unique)"},
-		"new_name":    map[string]any{"type": "string", "description": "New VM name"},
-		"full":        map[string]any{"type": "boolean", "description": "Full clone (default: true) vs linked clone"},
-	})
-	addTool("update_vm_config", "Update virtual machine configuration (e.g., mark as template)", s.updateVMConfig, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-		"config":    map[string]any{"type": "object", "description": "Configuration to update (e.g., {\"template\": 1} to mark as template)"},
-	})
-	addTool("get_vm_console", "Get console access information for a VM", s.getVMConsole, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addTool("create_vm_snapshot", "Create a snapshot of a virtual machine", s.createVMSnapshot, map[string]any{
-		"node_name":   map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":        map[string]any{"type": "integer", "description": "VM ID"},
-		"snap_name":   map[string]any{"type": "string", "description": "Snapshot name"},
-		"description": map[string]any{"type": "string", "description": "Snapshot description (optional)"},
-	})
-	addTool("list_vm_snapshots", "List all snapshots for a virtual machine", s.listVMSnapshots, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addTool("delete_vm_snapshot", "Delete a snapshot from a virtual machine", s.deleteVMSnapshot, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-		"snap_name": map[string]any{"type": "string", "description": "Snapshot name"},
-		"force":     map[string]any{"type": "boolean", "description": "Force delete (optional)"},
-	})
-	addTool("restore_vm_snapshot", "Restore a virtual machine from a snapshot", s.restoreVMSnapshot, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-		"snap_name": map[string]any{"type": "string", "description": "Snapshot name"},
-	})
-	addTool("get_vm_firewall_rules", "Get firewall rules for a virtual machine", s.getVMFirewallRules, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addTool("migrate_vm", "Migrate a virtual machine to another node", s.migrateVM, map[string]any{
-		"node_name":   map[string]any{"type": "string", "description": "Source node name"},
-		"vmid":        map[string]any{"type": "integer", "description": "VM ID"},
-		"target_node": map[string]any{"type": "string", "description": "Target node name"},
-		"online":      map[string]any{"type": "boolean", "description": "Perform live migration (optional)"},
-	})
-
-	// Container Management - Query (Advanced)
-	addToolAdvanced("get_containers", "Get all containers on a specific node", s.getContainers, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Name of the node"},
-	})
-	addToolAdvanced("get_container_status", "Get detailed status of a specific container", s.getContainerStatus, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-	})
-
-	// Container Management - Control (Advanced)
-	addToolAdvanced("start_container", "Start an LXC container", s.startContainer, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-	})
-	addToolAdvanced("stop_container", "Stop an LXC container (immediate)", s.stopContainer, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-	})
-	addToolAdvanced("shutdown_container", "Gracefully shutdown an LXC container", s.shutdownContainer, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-	})
-	addToolAdvanced("reboot_container", "Reboot an LXC container", s.rebootContainer, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-	})
-	addToolAdvanced("get_container_config", "Get full configuration of a container", s.getContainerConfig, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-	})
-	addToolAdvanced("delete_container", "Delete an LXC container", s.deleteContainer, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-		"force":        map[string]any{"type": "boolean", "description": "Force delete even if running (optional)"},
-	})
-	addToolAdvanced("create_container", "Create a new LXC container", s.createContainer, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID (must be unique)"},
-		"hostname":     map[string]any{"type": "string", "description": "Container hostname"},
-		"storage":      map[string]any{"type": "string", "description": "Storage device ID"},
-		"memory":       map[string]any{"type": "integer", "description": "Memory in MB (default: 512)"},
-		"cores":        map[string]any{"type": "integer", "description": "CPU cores (default: 1)"},
-		"ostype":       map[string]any{"type": "string", "description": "OS type (default: debian)"},
-	})
-	addToolAdvanced("create_container_advanced", "Create a container with advanced configuration options", s.createContainerAdvanced, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID (must be unique)"},
-		"hostname":     map[string]any{"type": "string", "description": "Container hostname (optional)"},
-		"storage":      map[string]any{"type": "string", "description": "Storage device ID (optional)"},
-		"memory":       map[string]any{"type": "integer", "description": "Memory in MB (optional)"},
-		"cores":        map[string]any{"type": "integer", "description": "CPU cores (optional)"},
-		"ostype":       map[string]any{"type": "string", "description": "OS type (optional)"},
-		"net0":         map[string]any{"type": "string", "description": "Network configuration (e.g., name=eth0,bridge=vmbr0, optional)"},
-		"rootfs":       map[string]any{"type": "string", "description": "Root filesystem (e.g., local-lvm:10, optional)"},
-	})
-	addToolAdvanced("clone_container", "Clone an existing LXC container", s.cloneContainer, map[string]any{
-		"node_name":           map[string]any{"type": "string", "description": "Name of the node"},
-		"source_container_id": map[string]any{"type": "integer", "description": "Source container ID to clone from"},
-		"new_container_id":    map[string]any{"type": "integer", "description": "New container ID (must be unique)"},
-		"new_hostname":        map[string]any{"type": "string", "description": "New container hostname"},
-		"full":                map[string]any{"type": "boolean", "description": "Full clone (default: true) vs linked clone"},
-	})
-	addToolAdvanced("update_container_config", "Update LXC container configuration", s.updateContainerConfig, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-		"config":       map[string]any{"type": "object", "description": "Configuration to update"},
-	})
-	addToolAdvanced("create_container_snapshot", "Create a snapshot of an LXC container", s.createContainerSnapshot, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
-		"description":  map[string]any{"type": "string", "description": "Snapshot description (optional)"},
-	})
-	addToolAdvanced("list_container_snapshots", "List all snapshots for an LXC container", s.listContainerSnapshots, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-	})
-	addToolAdvanced("delete_container_snapshot", "Delete a snapshot from an LXC container", s.deleteContainerSnapshot, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
-		"force":        map[string]any{"type": "boolean", "description": "Force delete (optional)"},
-	})
-	addToolAdvanced("restore_container_snapshot", "Restore an LXC container from a snapshot", s.restoreContainerSnapshot, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Name of the node"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-		"snap_name":    map[string]any{"type": "string", "description": "Snapshot name"},
-	})
-
-	// User Management - Query (Advanced)
-	addToolAdvanced("list_users", "List all users in the system", s.listUsers, map[string]any{})
-	addToolAdvanced("get_user", "Get details for a specific user", s.getUser, map[string]any{
-		"userid": map[string]any{"type": "string", "description": "User ID (e.g., user@pve)"},
-	})
-	addToolAdvanced("list_groups", "List all groups", s.listGroups, map[string]any{})
-	addToolAdvanced("list_roles", "List all available roles and their privileges", s.listRoles, map[string]any{})
-	addToolAdvanced("list_acl", "List all access control list entries", s.listACLs, map[string]any{})
-
-	// User Management - Control (Advanced)
-	addToolAdvanced("create_user", "Create a new user", s.createUser, map[string]any{
-		"userid":   map[string]any{"type": "string", "description": "User ID (e.g., user@pve)"},
-		"password": map[string]any{"type": "string", "description": "Initial password (optional - will attempt to set after creation, may fail with API token for PAM realm, works with session ticket)"},
-		"email":    map[string]any{"type": "string", "description": "Email address (optional)"},
-		"comment":  map[string]any{"type": "string", "description": "Comment (optional)"},
-	})
-	addToolAdvanced("update_user", "Update user properties", s.updateUser, map[string]any{
-		"userid":    map[string]any{"type": "string", "description": "User ID"},
-		"email":     map[string]any{"type": "string", "description": "Email address (optional)"},
-		"comment":   map[string]any{"type": "string", "description": "Comment (optional)"},
-		"firstname": map[string]any{"type": "string", "description": "First name (optional)"},
-		"lastname":  map[string]any{"type": "string", "description": "Last name (optional)"},
-		"enable":    map[string]any{"type": "boolean", "description": "Enable/disable user (optional)"},
-		"expire":    map[string]any{"type": "integer", "description": "Expiration Unix timestamp (optional)"},
-	})
-	addToolAdvanced("delete_user", "Delete a user", s.deleteUser, map[string]any{
-		"userid": map[string]any{"type": "string", "description": "User ID"},
-	})
-	addToolAdvanced("change_password", "Change user password", s.changePassword, map[string]any{
-		"userid":   map[string]any{"type": "string", "description": "User ID"},
-		"password": map[string]any{"type": "string", "description": "New password"},
-	})
-	addToolAdvanced("create_group", "Create a new user group", s.createGroup, map[string]any{
-		"groupid": map[string]any{"type": "string", "description": "Group ID"},
-		"comment": map[string]any{"type": "string", "description": "Comment (optional)"},
-	})
-	addToolAdvanced("delete_group", "Delete a user group", s.deleteGroup, map[string]any{
-		"groupid": map[string]any{"type": "string", "description": "Group ID"},
-	})
-	addToolAdvanced("create_role", "Create a new role with specific privileges", s.createRole, map[string]any{
-		"roleid": map[string]any{"type": "string", "description": "Role ID"},
-		"privs":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "List of privileges"},
-	})
-	addToolAdvanced("delete_role", "Delete a role", s.deleteRole, map[string]any{
-		"roleid": map[string]any{"type": "string", "description": "Role ID"},
-	})
-	addToolAdvanced("set_acl", "Create or update an access control list entry", s.setACL, map[string]any{
-		"path":      map[string]any{"type": "string", "description": "ACL path (e.g., /vms, /nodes)"},
-		"role":      map[string]any{"type": "string", "description": "Role ID"},
-		"userid":    map[string]any{"type": "string", "description": "User ID (optional)"},
-		"groupid":   map[string]any{"type": "string", "description": "Group ID (optional)"},
-		"tokenid":   map[string]any{"type": "string", "description": "Token ID (optional)"},
-		"propagate": map[string]any{"type": "boolean", "description": "Propagate permissions down tree (optional)"},
-	})
-	addToolAdvanced("create_api_token", "Create a new API token for a user", s.createAPIToken, map[string]any{
-		"userid":  map[string]any{"type": "string", "description": "User ID"},
-		"tokenid": map[string]any{"type": "string", "description": "Token ID"},
-		"expire":  map[string]any{"type": "integer", "description": "Expiration Unix timestamp (optional)"},
-		"privsep": map[string]any{"type": "boolean", "description": "Separate privileges (optional)"},
-	})
-	addToolAdvanced("delete_api_token", "Delete an API token", s.deleteAPIToken, map[string]any{
-		"userid":  map[string]any{"type": "string", "description": "User ID"},
-		"tokenid": map[string]any{"type": "string", "description": "Token ID"},
-	})
-
-	// Backup & Restore - Query
-	addTool("list_backups", "List available backups in storage", s.listBackups, map[string]any{
-		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
-	})
-
-	// Backup & Restore - Control
-	addTool("create_vm_backup", "Create a backup of a virtual machine", s.createVMBackup, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-		"storage":   map[string]any{"type": "string", "description": "Storage device ID"},
-		"backup_id": map[string]any{"type": "string", "description": "Backup ID (optional)"},
-		"notes":     map[string]any{"type": "string", "description": "Backup notes (optional)"},
-	})
-	addToolAdvanced("create_container_backup", "Create a backup of a container", s.createContainerBackup, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Node name"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-		"storage":      map[string]any{"type": "string", "description": "Storage device ID"},
-		"backup_id":    map[string]any{"type": "string", "description": "Backup ID (optional)"},
-		"notes":        map[string]any{"type": "string", "description": "Backup notes (optional)"},
-	})
-	addTool("delete_backup", "Delete a backup file", s.deleteBackup, map[string]any{
-		"storage":   map[string]any{"type": "string", "description": "Storage device ID"},
-		"backup_id": map[string]any{"type": "string", "description": "Backup ID/filename"},
-	})
-	addTool("restore_vm_backup", "Restore a virtual machine from a backup", s.restoreVMBackup, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-		"backup_id": map[string]any{"type": "string", "description": "Backup ID/filename"},
-		"storage":   map[string]any{"type": "string", "description": "Storage device ID"},
-	})
-	addToolAdvanced("restore_container_backup", "Restore a container from a backup", s.restoreContainerBackup, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-		"backup_id": map[string]any{"type": "string", "description": "Backup ID/filename"},
-		"storage":   map[string]any{"type": "string", "description": "Storage device ID"},
-	})
-
-	// Resource Pools - Query
-	addTool("list_pools", "List all resource pools in the cluster", s.listPools, map[string]any{})
-	addTool("get_pool", "Get details for a specific resource pool", s.getPool, map[string]any{
-		"poolid": map[string]any{"type": "string", "description": "Pool ID"},
-	})
-
-	// Node Management
-	addTool("get_node_tasks", "Get tasks for a specific node", s.getNodeTasks, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-	addTool("get_cluster_tasks", "Get all tasks in the cluster", s.getClusterTasks, map[string]any{})
-
-	// Statistics
-	addTool("get_node_stats", "Get performance statistics for a specific node", s.getNodeStats, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-	addTool("get_vm_stats", "Get performance statistics for a specific VM", s.getVMStats, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-		"vmid":      map[string]any{"type": "integer", "description": "VM ID"},
-	})
-	addToolAdvanced("get_container_stats", "Get performance statistics for a specific container", s.getContainerStats, map[string]any{
-		"node_name":    map[string]any{"type": "string", "description": "Node name"},
-		"container_id": map[string]any{"type": "integer", "description": "Container ID"},
-	})
-
-	// ============ PHASE 4: Storage Management (CRITICAL) ============
-	addTool("get_storage_info", "Get detailed storage device information", s.getStorageInfo, map[string]any{
-		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
-	})
-	addTool("create_storage", "Create a new storage mount", s.createStorage, map[string]any{
-		"storage":      map[string]any{"type": "string", "description": "Storage device ID"},
-		"storage_type": map[string]any{"type": "string", "description": "Storage type (dir, nfs, lvm, iscsi, etc.)"},
-		"content":      map[string]any{"type": "string", "description": "Content types (images, rootdir, backups, etc.)"},
-		"config":       map[string]any{"type": "object", "description": "Type-specific configuration (optional)"},
-	})
-	addTool("delete_storage", "Remove a storage configuration", s.deleteStorage, map[string]any{
-		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
-	})
-	addTool("update_storage", "Modify storage configuration", s.updateStorage, map[string]any{
-		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
-		"config":  map[string]any{"type": "object", "description": "Configuration to update"},
-	})
-	addTool("get_storage_content", "List storage contents (ISOs, backups, templates, etc.)", s.getStorageContent, map[string]any{
-		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
-	})
-
-	// ============ PHASE 4: Task Management (HIGH PRIORITY) ============
-	addTool("get_task_status", "Get detailed status and progress of a task", s.getTaskStatus, map[string]any{
-		"task_id": map[string]any{"type": "string", "description": "Task ID (UPID format)"},
-	})
-	addTool("get_task_log", "Get task execution log and output", s.getTaskLog, map[string]any{
-		"task_id": map[string]any{"type": "string", "description": "Task ID (UPID format)"},
-		"start":   map[string]any{"type": "integer", "description": "Start line number (optional)"},
-		"limit":   map[string]any{"type": "integer", "description": "Number of lines to return (optional)"},
-	})
-	addTool("cancel_task", "Cancel a running task", s.cancelTask, map[string]any{
-		"task_id": map[string]any{"type": "string", "description": "Task ID (UPID format)"},
-	})
-
-	// ============ PHASE 4: Node Management (HIGH PRIORITY) ============
-	addTool("get_node_config", "Get node network and system configuration", s.getNodeConfig, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-	addTool("update_node_config", "Modify node settings", s.updateNodeConfig, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-		"config":    map[string]any{"type": "object", "description": "Configuration to update"},
-	})
-	addToolAdvanced("reboot_node", "Reboot a node", s.rebootNode, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-	addToolAdvanced("shutdown_node", "Gracefully shutdown a node", s.shutdownNode, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-	addTool("get_node_disks", "List physical disks in a node", s.getNodeDisks, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-	addTool("get_node_cert", "Get SSL certificate information for a node", s.getNodeCert, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-
-	// ============ POOL MANAGEMENT ============
-	addTool("create_pool", "Create a new resource pool", s.createPool, map[string]any{
-		"poolid":  map[string]any{"type": "string", "description": "Pool ID"},
-		"comment": map[string]any{"type": "string", "description": "Pool comment (optional)"},
-		"members": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Pool members array (optional)"},
-	})
-	addTool("update_pool", "Modify an existing resource pool", s.updatePool, map[string]any{
-		"poolid":  map[string]any{"type": "string", "description": "Pool ID"},
-		"comment": map[string]any{"type": "string", "description": "Pool comment (optional)"},
-		"members": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Pool members array (optional)"},
-		"delete":  map[string]any{"type": "boolean", "description": "Delete pool members (optional)"},
-	})
-	addTool("delete_pool", "Remove a resource pool", s.deletePool, map[string]any{
-		"poolid": map[string]any{"type": "string", "description": "Pool ID"},
-	})
-	addTool("get_pool_members", "Get all resources in a resource pool", s.getPoolMembers, map[string]any{
-		"poolid": map[string]any{"type": "string", "description": "Pool ID"},
-	})
-
-	// ============ ADDITIONAL TOOLS (Phase 5 - Optional Extensions) ============
-	addTool("get_storage_quota", "Get storage quota and usage information", s.getStorageQuota, map[string]any{
-		"storage": map[string]any{"type": "string", "description": "Storage device ID"},
-	})
-	addTool("upload_backup", "Upload backup file to storage (experimental)", s.uploadBackup, map[string]any{
-		"storage":   map[string]any{"type": "string", "description": "Storage device ID"},
-		"backup_id": map[string]any{"type": "string", "description": "Backup ID/filename"},
-		"file_path": map[string]any{"type": "string", "description": "Local file path to upload"},
-	})
-	addTool("get_node_logs", "Get node system logs", s.getNodeLogs, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-		"lines":     map[string]any{"type": "integer", "description": "Number of log lines to retrieve (optional, default: 50)"},
-	})
-	addTool("get_node_apt_updates", "Get available package updates for a node", s.getNodeAPTUpdates, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-	addTool("apply_node_updates", "Install available system updates on a node", s.applyNodeUpdates, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-	addTool("get_node_network", "Get detailed network configuration for a node", s.getNodeNetwork, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-	addTool("get_node_dns", "Get DNS configuration for a node", s.getNodeDNS, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-
-	// ============ HA (HIGH AVAILABILITY) CLUSTER MANAGEMENT ============
-	addTool("get_ha_status", "Get cluster High Availability status", s.getHAStatus, map[string]any{})
-	addTool("enable_ha_resource", "Enable High Availability for a resource", s.enableHAResource, map[string]any{
-		"sid":     map[string]any{"type": "string", "description": "Resource ID (sid format: type:id, e.g., vm:100)"},
-		"comment": map[string]any{"type": "string", "description": "HA resource comment (optional)"},
-		"state":   map[string]any{"type": "string", "description": "Initial state: started or stopped (optional)"},
-	})
-	addTool("disable_ha_resource", "Disable High Availability for a resource", s.disableHAResource, map[string]any{
-		"sid": map[string]any{"type": "string", "description": "Resource ID to disable HA"},
-	})
-
-	// ============ CLUSTER OPERATIONS (Advanced) ============
-	addToolAdvanced("get_cluster_config", "Get cluster configuration", s.getClusterConfig, map[string]any{})
-	addToolAdvanced("get_cluster_nodes_status", "Get status of all nodes in the cluster", s.getClusterNodesStatus, map[string]any{})
-	addToolAdvanced("add_node_to_cluster", "Add a node to the cluster", s.addNodeToCluster, map[string]any{
-		"node_name":       map[string]any{"type": "string", "description": "Node name to add"},
-		"cluster_name":    map[string]any{"type": "string", "description": "Cluster name (optional)"},
-		"cluster_network": map[string]any{"type": "string", "description": "Cluster network address (optional)"},
-	})
-	addToolAdvanced("remove_node_from_cluster", "Remove a node from the cluster", s.removeNodeFromCluster, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name to remove"},
-	})
-
-	// ============ FIREWALL & NETWORK MANAGEMENT ============
-	addTool("get_firewall_rules", "List cluster-wide firewall rules", s.getFirewallRules, map[string]any{})
-	addTool("create_firewall_rule", "Create a new firewall rule", s.createFirewallRule, map[string]any{
-		"direction": map[string]any{"type": "string", "description": "Rule direction: in, out, or group"},
-		"action":    map[string]any{"type": "string", "description": "Action: ACCEPT, DROP, or REJECT"},
-		"source":    map[string]any{"type": "string", "description": "Source address/network (optional)"},
-		"dest":      map[string]any{"type": "string", "description": "Destination address/network (optional)"},
-		"proto":     map[string]any{"type": "string", "description": "Protocol: tcp, udp, esp, gre, etc (optional)"},
-		"sport":     map[string]any{"type": "string", "description": "Source port or port range (optional)"},
-		"dport":     map[string]any{"type": "string", "description": "Destination port or port range (optional)"},
-		"comment":   map[string]any{"type": "string", "description": "Rule comment (optional)"},
-		"enable":    map[string]any{"type": "integer", "description": "Enable rule: 0 or 1 (default: 1)"},
-	})
-	addTool("delete_firewall_rule", "Delete a firewall rule by position", s.deleteFirewallRule, map[string]any{
-		"position": map[string]any{"type": "string", "description": "Rule position/ID to delete"},
-	})
-	addTool("get_security_groups", "List all security groups (firewall groups)", s.getSecurityGroups, map[string]any{})
-	addTool("create_security_group", "Create a new security group", s.createSecurityGroup, map[string]any{
-		"name":    map[string]any{"type": "string", "description": "Security group name"},
-		"comment": map[string]any{"type": "string", "description": "Group comment (optional)"},
-	})
-	addTool("get_network_interfaces", "List network interfaces on a node", s.getNetworkInterfaces, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-	addTool("get_vlan_config", "Get VLAN configuration for a node", s.getVLANConfig, map[string]any{
-		"node_name": map[string]any{"type": "string", "description": "Node name"},
-	})
-
-	// Register tools based on category and environment settings
-	defaultCount := 0
-	advancedCount := 0
+	toolDefs := s.outcomeBasedToolDefs()
 	for _, def := range toolDefs {
-		if def.Category == CategoryDefault || enableAdvanced {
-			registerTool(def)
-			if def.Category == CategoryDefault {
-				defaultCount++
-			} else {
-				advancedCount++
-			}
-		}
+		s.server.AddTool(mcp.Tool{
+			Name:        def.Name,
+			Description: def.Description,
+			InputSchema: mcp.ToolInputSchema{Type: "object", Properties: def.Properties},
+		}, def.Handler)
 	}
-
-	// Actually register tools with the MCP server
-	for _, tool := range tools {
-		s.server.AddTool(tool.Tool, tool.Handler)
-	}
-
-	totalRegistered := len(tools)
-	if enableAdvanced {
-		s.logger.Infof("Registered %d tools (%d default + %d advanced)", totalRegistered, defaultCount, advancedCount)
-	} else {
-		s.logger.Infof("Registered %d default tools (advanced tools disabled - set MCP_ENABLE_ADVANCED_TOOLS=true to enable)", totalRegistered)
-		s.logger.Debugf("Skipped %d advanced tools", len(toolDefs)-totalRegistered)
-	}
+	s.logger.Infof("Registered %d outcome-based tools", len(toolDefs))
 }
 
 // ServeStdio starts the MCP server with stdio transport
@@ -844,6 +279,179 @@ func (s *Server) getClusterStatus(ctx context.Context, request mcp.CallToolReque
 	})
 }
 
+// getClusterOverview returns nodes, resources, and status in one call (outcome-based replacement for get_nodes + get_cluster_resources + get_cluster_status)
+func (s *Server) getClusterOverview(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: get_cluster_overview")
+
+	nodes, err := s.proxmoxClient.GetNodes(ctx)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get nodes: %v", err)), nil
+	}
+	resources, err := s.proxmoxClient.GetClusterResources(ctx)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get cluster resources: %v", err)), nil
+	}
+	status, err := s.proxmoxClient.GetClusterStatus(ctx)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get cluster status: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"nodes":     nodes,
+		"nodes_count": len(nodes),
+		"resources": resources,
+		"resources_count": getArrayLength(resources),
+		"status":    status,
+		"status_count": getArrayLength(status),
+	})
+}
+
+// listGuests returns VMs and/or LXC containers (outcome-based replacement for get_vms + get_containers)
+func (s *Server) listGuests(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: list_guests")
+
+	nodeName := request.GetString("node_name", "")
+	guestType := strings.ToLower(request.GetString("type", "all"))
+	if guestType != "vm" && guestType != "lxc" && guestType != "all" {
+		return mcp.NewToolResultError("type must be vm, lxc, or all"), nil
+	}
+
+	// If no node specified, use cluster resources and filter
+	if nodeName == "" {
+		resources, err := s.proxmoxClient.GetClusterResources(ctx)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get cluster resources: %v", err)), nil
+		}
+		resourceList, ok := resources.([]interface{})
+		if !ok {
+			return mcp.NewToolResultError("Unexpected cluster resources format"), nil
+		}
+		var vms, containers []interface{}
+		for _, r := range resourceList {
+			m, ok := r.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			t, _ := m["type"].(string)
+			if guestType == "all" || guestType == "vm" {
+				if t == "qemu" {
+					vms = append(vms, r)
+				}
+			}
+			if guestType == "all" || guestType == "lxc" {
+				if t == "lxc" {
+					containers = append(containers, r)
+				}
+			}
+		}
+		return mcp.NewToolResultJSON(map[string]interface{}{
+			"vms":        vms,
+			"vms_count":  len(vms),
+			"containers": containers,
+			"containers_count": len(containers),
+			"type":       guestType,
+		})
+	}
+
+	out := map[string]interface{}{"node": nodeName, "type": guestType}
+	if guestType == "all" || guestType == "vm" {
+		vms, err := s.proxmoxClient.GetVMs(ctx, nodeName)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get VMs: %v", err)), nil
+		}
+		out["vms"] = vms
+		out["vms_count"] = len(vms)
+	}
+	if guestType == "all" || guestType == "lxc" {
+		containers, err := s.proxmoxClient.GetContainers(ctx, nodeName)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get containers: %v", err)), nil
+		}
+		out["containers"] = containers
+		out["containers_count"] = len(containers)
+	}
+	return mcp.NewToolResultJSON(out)
+}
+
+// controlGuest starts, stops, shuts down, or reboots a VM or container (outcome-based replacement for start/stop/shutdown/reboot per type)
+func (s *Server) controlGuest(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: control_guest")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+	guestType := strings.ToLower(request.GetString("guest_type", "vm"))
+	if guestType != "vm" && guestType != "lxc" {
+		return mcp.NewToolResultError("guest_type must be vm or lxc"), nil
+	}
+	vmid := request.GetInt("vmid", 0)
+	if vmid <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+	action := strings.ToLower(request.GetString("action", ""))
+	if action != "start" && action != "stop" && action != "shutdown" && action != "reboot" && action != "suspend" && action != "resume" && action != "migrate" {
+		return mcp.NewToolResultError("action must be start, stop, shutdown, reboot, suspend, resume, or migrate"), nil
+	}
+	if guestType == "lxc" && (action == "suspend" || action == "resume" || action == "migrate") {
+		return mcp.NewToolResultError("suspend, resume, and migrate are only supported for VMs"), nil
+	}
+	if action == "migrate" {
+		targetNode := request.GetString("target_node", "")
+		if targetNode == "" {
+			return mcp.NewToolResultError("target_node is required for action migrate"), nil
+		}
+		online := request.GetBool("online", false)
+		result, err := s.proxmoxClient.MigrateVM(ctx, nodeName, vmid, targetNode, online)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("migrate failed: %v", err)), nil
+		}
+		return mcp.NewToolResultJSON(map[string]interface{}{
+			"action": "migrate", "guest_type": guestType, "vmid": vmid, "node": nodeName, "target_node": targetNode, "result": result,
+		})
+	}
+
+	var result interface{}
+	var err error
+	if guestType == "vm" {
+		switch action {
+		case "start":
+			result, err = s.proxmoxClient.StartVM(ctx, nodeName, vmid)
+		case "stop":
+			result, err = s.proxmoxClient.StopVM(ctx, nodeName, vmid)
+		case "shutdown":
+			result, err = s.proxmoxClient.ShutdownVM(ctx, nodeName, vmid)
+		case "reboot":
+			result, err = s.proxmoxClient.RebootVM(ctx, nodeName, vmid)
+		case "suspend":
+			result, err = s.proxmoxClient.SuspendVM(ctx, nodeName, vmid)
+		case "resume":
+			result, err = s.proxmoxClient.ResumeVM(ctx, nodeName, vmid)
+		}
+	} else {
+		switch action {
+		case "start":
+			result, err = s.proxmoxClient.StartContainer(ctx, nodeName, vmid)
+		case "stop":
+			result, err = s.proxmoxClient.StopContainer(ctx, nodeName, vmid)
+		case "shutdown":
+			result, err = s.proxmoxClient.ShutdownContainer(ctx, nodeName, vmid)
+		case "reboot":
+			result, err = s.proxmoxClient.RebootContainer(ctx, nodeName, vmid)
+		}
+	}
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to %s %s: %v", action, guestType, err)), nil
+	}
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action":     action,
+		"guest_type": guestType,
+		"vmid":       vmid,
+		"node":       nodeName,
+		"result":    result,
+	})
+}
+
 // getStorage handles the get_storage tool
 func (s *Server) getStorage(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	s.logger.Debug("Tool called: get_storage")
@@ -1028,6 +636,12 @@ func (s *Server) deleteVM(ctx context.Context, request mcp.CallToolRequest) (*mc
 		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
 	}
 
+	expectedConfirm := fmt.Sprintf("%s/%d", nodeName, vmID)
+	confirm := request.GetString("confirm", "")
+	if confirm != expectedConfirm {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", expectedConfirm)), nil
+	}
+
 	force := request.GetBool("force", false)
 
 	result, err := s.proxmoxClient.DeleteVM(ctx, nodeName, vmID, force)
@@ -1098,7 +712,7 @@ func (s *Server) resumeVM(ctx context.Context, request mcp.CallToolRequest) (*mc
 	})
 }
 
-// createVM handles the create_vm tool
+// createVM handles the create_vm tool (single tool with all optional flat params)
 func (s *Server) createVM(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	s.logger.Debug("Tool called: create_vm")
 
@@ -1112,54 +726,7 @@ func (s *Server) createVM(ctx context.Context, request mcp.CallToolRequest) (*mc
 		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
 	}
 
-	name := request.GetString("name", "")
-	if name == "" {
-		return mcp.NewToolResultError("name parameter is required"), nil
-	}
-
-	memory := request.GetInt("memory", 512)
-	cores := request.GetInt("cores", 1)
-	sockets := request.GetInt("sockets", 1)
-
-	result, err := s.proxmoxClient.CreateVMFull(ctx, nodeName, vmID, name, memory, cores, sockets)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to create VM: %v", err)), nil
-	}
-
-	return mcp.NewToolResultJSON(map[string]interface{}{
-		"action": "create",
-		"vmid":   vmID,
-		"name":   name,
-		"node":   nodeName,
-		"config": map[string]interface{}{
-			"memory":  memory,
-			"cores":   cores,
-			"sockets": sockets,
-		},
-		"result": result,
-	})
-}
-
-// createVMAdvanced handles the create_vm_advanced tool with full configuration
-func (s *Server) createVMAdvanced(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	s.logger.Debug("Tool called: create_vm_advanced")
-
-	nodeName := request.GetString("node_name", "")
-	if nodeName == "" {
-		return mcp.NewToolResultError("node_name parameter is required"), nil
-	}
-
-	vmID := request.GetInt("vmid", 0)
-	if vmID <= 0 {
-		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
-	}
-
-	// Build configuration from optional parameters
-	config := map[string]interface{}{
-		"vmid": vmID,
-	}
-
-	// Add optional parameters if provided
+	config := map[string]interface{}{"vmid": vmID}
 	if name := request.GetString("name", ""); name != "" {
 		config["name"] = name
 	}
@@ -1182,7 +749,18 @@ func (s *Server) createVMAdvanced(ctx context.Context, request mcp.CallToolReque
 		config["net0"] = net0
 	}
 
-	result, err := s.proxmoxClient.CreateVM(ctx, nodeName, config)
+	var result interface{}
+	var err error
+	name := request.GetString("name", "")
+	hasAdvanced := request.GetString("ide2", "") != "" || request.GetString("sata0", "") != "" || request.GetString("net0", "") != ""
+	if name != "" && !hasAdvanced {
+		mem := request.GetInt("memory", 512)
+		cores := request.GetInt("cores", 1)
+		sockets := request.GetInt("sockets", 1)
+		result, err = s.proxmoxClient.CreateVMFull(ctx, nodeName, vmID, name, mem, cores, sockets)
+	} else {
+		result, err = s.proxmoxClient.CreateVM(ctx, nodeName, config)
+	}
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to create VM: %v", err)), nil
 	}
@@ -1238,7 +816,118 @@ func (s *Server) cloneVM(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	})
 }
 
-// updateVMConfig handles the update_vm_config tool
+// cloneGuest handles the clone_guest tool (VM or LXC)
+func (s *Server) cloneGuest(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: clone_guest")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+	guestType := strings.ToLower(request.GetString("guest_type", "vm"))
+	if guestType != "vm" && guestType != "lxc" {
+		return mcp.NewToolResultError("guest_type must be vm or lxc"), nil
+	}
+	sourceID := request.GetInt("source_vmid", 0)
+	if sourceID <= 0 {
+		return mcp.NewToolResultError("source_vmid parameter is required and must be a positive integer"), nil
+	}
+	newID := request.GetInt("new_vmid", 0)
+	if newID <= 0 {
+		return mcp.NewToolResultError("new_vmid parameter is required and must be a positive integer"), nil
+	}
+	newName := request.GetString("new_name", "")
+	if newName == "" {
+		return mcp.NewToolResultError("new_name parameter is required (VM name or container hostname)"), nil
+	}
+	full := request.GetBool("full", true)
+
+	var result interface{}
+	var err error
+	if guestType == "vm" {
+		result, err = s.proxmoxClient.CloneVM(ctx, nodeName, sourceID, newID, newName, full)
+	} else {
+		result, err = s.proxmoxClient.CloneContainer(ctx, nodeName, sourceID, newID, newName, full)
+	}
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to clone %s: %v", guestType, err)), nil
+	}
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action":      "clone",
+		"guest_type":  guestType,
+		"source_vmid": sourceID,
+		"new_vmid":    newID,
+		"new_name":   newName,
+		"node":        nodeName,
+		"full_clone":  full,
+		"result":      result,
+	})
+}
+
+// updateGuestConfig handles the update_guest_config tool (flat params for VM or container)
+func (s *Server) updateGuestConfig(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: update_guest_config")
+
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+	guestType := strings.ToLower(request.GetString("guest_type", "vm"))
+	if guestType != "vm" && guestType != "lxc" {
+		return mcp.NewToolResultError("guest_type must be vm or lxc"), nil
+	}
+	vmid := request.GetInt("vmid", 0)
+	if vmid <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+
+	config := make(map[string]interface{})
+	if v := request.GetInt("memory", 0); v > 0 {
+		config["memory"] = v
+	}
+	if v := request.GetInt("cores", 0); v > 0 {
+		config["cores"] = v
+	}
+	if v := request.GetInt("sockets", 0); v > 0 {
+		config["sockets"] = v
+	}
+	if v := request.GetString("name", ""); v != "" {
+		config["name"] = v
+	}
+	if v := request.GetString("hostname", ""); v != "" {
+		config["hostname"] = v
+	}
+	if v := request.GetInt("template", -1); v >= 0 {
+		config["template"] = v
+	}
+	if v := request.GetString("net0", ""); v != "" {
+		config["net0"] = v
+	}
+	if len(config) == 0 {
+		return mcp.NewToolResultError("at least one optional config parameter is required (memory, cores, name, hostname, template, net0, sockets)"), nil
+	}
+
+	var result interface{}
+	var err error
+	if guestType == "vm" {
+		result, err = s.proxmoxClient.UpdateVM(ctx, nodeName, vmid, config)
+	} else {
+		result, err = s.proxmoxClient.UpdateContainer(ctx, nodeName, vmid, config)
+	}
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to update %s config: %v", guestType, err)), nil
+	}
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action":     "update_config",
+		"guest_type": guestType,
+		"vmid":       vmid,
+		"node":       nodeName,
+		"config":    config,
+		"result":    result,
+	})
+}
+
+// updateVMConfig handles the update_vm_config tool (legacy; prefer update_guest_config)
 func (s *Server) updateVMConfig(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	s.logger.Debug("Tool called: update_vm_config")
 
@@ -1252,14 +941,12 @@ func (s *Server) updateVMConfig(ctx context.Context, request mcp.CallToolRequest
 		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
 	}
 
-	// Get all arguments to extract config
 	args := request.GetArguments()
 	configValue := args["config"]
 	if configValue == nil {
 		return mcp.NewToolResultError("config parameter is required"), nil
 	}
 
-	// Convert config to map[string]interface{}
 	var config map[string]interface{}
 	configBytes, err := json.Marshal(configValue)
 	if err != nil {
@@ -1307,6 +994,147 @@ func (s *Server) getVMConsole(ctx context.Context, request mcp.CallToolRequest) 
 		"vmid":    vmID,
 		"node":    nodeName,
 		"console": result,
+	})
+}
+
+// createSnapshot handles the create_snapshot tool (VM or container)
+func (s *Server) createSnapshot(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: create_snapshot")
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+	guestType := strings.ToLower(request.GetString("guest_type", "vm"))
+	if guestType != "vm" && guestType != "lxc" {
+		return mcp.NewToolResultError("guest_type must be vm or lxc"), nil
+	}
+	vmid := request.GetInt("vmid", 0)
+	if vmid <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+	snapName := request.GetString("snap_name", "")
+	if snapName == "" {
+		return mcp.NewToolResultError("snap_name parameter is required"), nil
+	}
+	description := request.GetString("description", "")
+	var result interface{}
+	var err error
+	if guestType == "vm" {
+		result, err = s.proxmoxClient.CreateVMSnapshot(ctx, nodeName, vmid, snapName, description)
+	} else {
+		result, err = s.proxmoxClient.CreateContainerSnapshot(ctx, nodeName, vmid, snapName, description)
+	}
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to create snapshot: %v", err)), nil
+	}
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action": "create_snapshot", "guest_type": guestType, "vmid": vmid, "node": nodeName,
+		"snapshot": snapName, "description": description, "result": result,
+	})
+}
+
+// listSnapshots handles the list_snapshots tool (VM or container)
+func (s *Server) listSnapshots(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: list_snapshots")
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+	guestType := strings.ToLower(request.GetString("guest_type", "vm"))
+	if guestType != "vm" && guestType != "lxc" {
+		return mcp.NewToolResultError("guest_type must be vm or lxc"), nil
+	}
+	vmid := request.GetInt("vmid", 0)
+	if vmid <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+	var snapshots interface{}
+	var err error
+	if guestType == "vm" {
+		snapshots, err = s.proxmoxClient.ListVMSnapshots(ctx, nodeName, vmid)
+	} else {
+		snapshots, err = s.proxmoxClient.ListContainerSnapshots(ctx, nodeName, vmid)
+	}
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to list snapshots: %v", err)), nil
+	}
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"guest_type": guestType, "vmid": vmid, "node": nodeName, "snapshots": snapshots,
+	})
+}
+
+// deleteSnapshot handles the delete_snapshot tool (VM or container; requires confirm)
+func (s *Server) deleteSnapshot(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: delete_snapshot")
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+	guestType := strings.ToLower(request.GetString("guest_type", "vm"))
+	if guestType != "vm" && guestType != "lxc" {
+		return mcp.NewToolResultError("guest_type must be vm or lxc"), nil
+	}
+	vmid := request.GetInt("vmid", 0)
+	if vmid <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+	snapName := request.GetString("snap_name", "")
+	if snapName == "" {
+		return mcp.NewToolResultError("snap_name parameter is required"), nil
+	}
+	expectedConfirm := fmt.Sprintf("%s/%d/%s", nodeName, vmid, snapName)
+	if request.GetString("confirm", "") != expectedConfirm {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", expectedConfirm)), nil
+	}
+	force := request.GetBool("force", false)
+	var result interface{}
+	var err error
+	if guestType == "vm" {
+		result, err = s.proxmoxClient.DeleteVMSnapshot(ctx, nodeName, vmid, snapName, force)
+	} else {
+		result, err = s.proxmoxClient.DeleteContainerSnapshot(ctx, nodeName, vmid, snapName, force)
+	}
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to delete snapshot: %v", err)), nil
+	}
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action": "delete_snapshot", "guest_type": guestType, "vmid": vmid, "node": nodeName,
+		"snapshot": snapName, "result": result,
+	})
+}
+
+// restoreSnapshot handles the restore_snapshot tool (VM or container)
+func (s *Server) restoreSnapshot(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.logger.Debug("Tool called: restore_snapshot")
+	nodeName := request.GetString("node_name", "")
+	if nodeName == "" {
+		return mcp.NewToolResultError("node_name parameter is required"), nil
+	}
+	guestType := strings.ToLower(request.GetString("guest_type", "vm"))
+	if guestType != "vm" && guestType != "lxc" {
+		return mcp.NewToolResultError("guest_type must be vm or lxc"), nil
+	}
+	vmid := request.GetInt("vmid", 0)
+	if vmid <= 0 {
+		return mcp.NewToolResultError("vmid parameter is required and must be a positive integer"), nil
+	}
+	snapName := request.GetString("snap_name", "")
+	if snapName == "" {
+		return mcp.NewToolResultError("snap_name parameter is required"), nil
+	}
+	var result interface{}
+	var err error
+	if guestType == "vm" {
+		result, err = s.proxmoxClient.RestoreVMSnapshot(ctx, nodeName, vmid, snapName)
+	} else {
+		result, err = s.proxmoxClient.RestoreContainerSnapshot(ctx, nodeName, vmid, snapName)
+	}
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to restore snapshot: %v", err)), nil
+	}
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"action": "restore_snapshot", "guest_type": guestType, "vmid": vmid, "node": nodeName,
+		"snapshot": snapName, "result": result,
 	})
 }
 
@@ -1651,6 +1479,11 @@ func (s *Server) deleteContainer(ctx context.Context, request mcp.CallToolReques
 		return mcp.NewToolResultError("container_id parameter is required and must be a positive integer"), nil
 	}
 
+	expectedConfirm := fmt.Sprintf("%s/%d", nodeName, containerID)
+	if request.GetString("confirm", "") != expectedConfirm {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", expectedConfirm)), nil
+	}
+
 	force := request.GetBool("force", false)
 
 	result, err := s.proxmoxClient.DeleteContainer(ctx, nodeName, containerID, force)
@@ -1667,7 +1500,7 @@ func (s *Server) deleteContainer(ctx context.Context, request mcp.CallToolReques
 	})
 }
 
-// createContainer handles the create_container tool
+// createContainer handles the create_container tool (single tool with all optional flat params)
 func (s *Server) createContainer(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	s.logger.Debug("Tool called: create_container")
 
@@ -1678,63 +1511,13 @@ func (s *Server) createContainer(ctx context.Context, request mcp.CallToolReques
 
 	containerID := request.GetInt("container_id", 0)
 	if containerID <= 0 {
-		return mcp.NewToolResultError("container_id parameter is required and must be a positive integer"), nil
+		containerID = request.GetInt("vmid", 0)
 	}
-
-	hostname := request.GetString("hostname", "")
-	if hostname == "" {
-		return mcp.NewToolResultError("hostname parameter is required"), nil
-	}
-
-	storage := request.GetString("storage", "")
-	if storage == "" {
-		return mcp.NewToolResultError("storage parameter is required"), nil
-	}
-
-	memory := request.GetInt("memory", 512)
-	cores := request.GetInt("cores", 1)
-	ostype := request.GetString("ostype", "debian")
-
-	result, err := s.proxmoxClient.CreateContainerFull(ctx, nodeName, containerID, hostname, storage, memory, cores, ostype)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to create container: %v", err)), nil
-	}
-
-	return mcp.NewToolResultJSON(map[string]interface{}{
-		"action":       "create",
-		"container_id": containerID,
-		"hostname":     hostname,
-		"node":         nodeName,
-		"config": map[string]interface{}{
-			"storage": storage,
-			"memory":  memory,
-			"cores":   cores,
-			"ostype":  ostype,
-		},
-		"result": result,
-	})
-}
-
-// createContainerAdvanced handles the create_container_advanced tool with full configuration
-func (s *Server) createContainerAdvanced(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	s.logger.Debug("Tool called: create_container_advanced")
-
-	nodeName := request.GetString("node_name", "")
-	if nodeName == "" {
-		return mcp.NewToolResultError("node_name parameter is required"), nil
-	}
-
-	containerID := request.GetInt("container_id", 0)
 	if containerID <= 0 {
-		return mcp.NewToolResultError("container_id parameter is required and must be a positive integer"), nil
+		return mcp.NewToolResultError("container_id or vmid is required and must be a positive integer"), nil
 	}
 
-	// Build configuration from optional parameters
-	config := map[string]interface{}{
-		"vmid": containerID,
-	}
-
-	// Add optional parameters if provided
+	config := map[string]interface{}{"vmid": containerID}
 	if hostname := request.GetString("hostname", ""); hostname != "" {
 		config["hostname"] = hostname
 	}
@@ -1757,7 +1540,19 @@ func (s *Server) createContainerAdvanced(ctx context.Context, request mcp.CallTo
 		config["rootfs"] = rootfs
 	}
 
-	result, err := s.proxmoxClient.CreateContainer(ctx, nodeName, config)
+	hostname := request.GetString("hostname", "")
+	storage := request.GetString("storage", "")
+	hasAdvanced := request.GetString("net0", "") != "" || request.GetString("rootfs", "") != ""
+	var result interface{}
+	var err error
+	if hostname != "" && storage != "" && !hasAdvanced {
+		memory := request.GetInt("memory", 512)
+		cores := request.GetInt("cores", 1)
+		ostype := request.GetString("ostype", "debian")
+		result, err = s.proxmoxClient.CreateContainerFull(ctx, nodeName, containerID, hostname, storage, memory, cores, ostype)
+	} else {
+		result, err = s.proxmoxClient.CreateContainer(ctx, nodeName, config)
+	}
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to create container: %v", err)), nil
 	}
@@ -2099,6 +1894,9 @@ func (s *Server) deleteUser(ctx context.Context, request mcp.CallToolRequest) (*
 	if userID == "" {
 		return mcp.NewToolResultError("userid parameter is required"), nil
 	}
+	if request.GetString("confirm", "") != userID {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", userID)), nil
+	}
 
 	result, err := s.proxmoxClient.DeleteUser(ctx, userID)
 	if err != nil {
@@ -2186,6 +1984,9 @@ func (s *Server) deleteGroup(ctx context.Context, request mcp.CallToolRequest) (
 	groupID := request.GetString("groupid", "")
 	if groupID == "" {
 		return mcp.NewToolResultError("groupid parameter is required"), nil
+	}
+	if request.GetString("confirm", "") != groupID {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", groupID)), nil
 	}
 
 	result, err := s.proxmoxClient.DeleteGroup(ctx, groupID)
@@ -2279,6 +2080,9 @@ func (s *Server) deleteRole(ctx context.Context, request mcp.CallToolRequest) (*
 	roleID := request.GetString("roleid", "")
 	if roleID == "" {
 		return mcp.NewToolResultError("roleid parameter is required"), nil
+	}
+	if request.GetString("confirm", "") != roleID {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", roleID)), nil
 	}
 
 	result, err := s.proxmoxClient.DeleteRole(ctx, roleID)
@@ -2390,6 +2194,10 @@ func (s *Server) deleteAPIToken(ctx context.Context, request mcp.CallToolRequest
 	tokenID := request.GetString("tokenid", "")
 	if tokenID == "" {
 		return mcp.NewToolResultError("tokenid parameter is required"), nil
+	}
+	expectedConfirm := fmt.Sprintf("%s/%s", userID, tokenID)
+	if request.GetString("confirm", "") != expectedConfirm {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", expectedConfirm)), nil
 	}
 
 	result, err := s.proxmoxClient.DeleteAPIToken(ctx, userID, tokenID)
@@ -2515,6 +2323,10 @@ func (s *Server) deleteBackup(ctx context.Context, request mcp.CallToolRequest) 
 	backupID := request.GetString("backup_id", "")
 	if backupID == "" {
 		return mcp.NewToolResultError("backup_id parameter is required"), nil
+	}
+	expectedConfirm := fmt.Sprintf("%s/%s", storage, backupID)
+	if request.GetString("confirm", "") != expectedConfirm {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", expectedConfirm)), nil
 	}
 
 	result, err := s.proxmoxClient.DeleteBackup(ctx, storage, backupID)
@@ -2816,6 +2628,9 @@ func (s *Server) deleteStorage(ctx context.Context, request mcp.CallToolRequest)
 	storage := request.GetString("storage", "")
 	if storage == "" {
 		return mcp.NewToolResultError("storage parameter is required"), nil
+	}
+	if request.GetString("confirm", "") != storage {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", storage)), nil
 	}
 
 	result, err := s.proxmoxClient.DeleteStorage(ctx, storage)
@@ -3164,6 +2979,9 @@ func (s *Server) deletePool(ctx context.Context, request mcp.CallToolRequest) (*
 	poolID := request.GetString("poolid", "")
 	if poolID == "" {
 		return mcp.NewToolResultError("poolid parameter is required"), nil
+	}
+	if request.GetString("confirm", "") != poolID {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", poolID)), nil
 	}
 
 	result, err := s.proxmoxClient.DeletePool(ctx, poolID)
@@ -3544,6 +3362,9 @@ func (s *Server) deleteFirewallRule(ctx context.Context, request mcp.CallToolReq
 	position := request.GetString("position", "")
 	if position == "" {
 		return mcp.NewToolResultError("position parameter is required"), nil
+	}
+	if request.GetString("confirm", "") != position {
+		return mcp.NewToolResultError(fmt.Sprintf("Delete requires confirmation. Set confirm to %q to proceed.", position)), nil
 	}
 
 	if err := s.proxmoxClient.DeleteFirewallRule(ctx, position); err != nil {
