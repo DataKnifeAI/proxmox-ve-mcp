@@ -1,5 +1,8 @@
 # Proxmox VE MCP
 
+![Proxmox VE MCP server](docs/assets/proxmox-ve-mcp-hero.jpg)
+
+
 Model Context Protocol (MCP) server for Proxmox Virtual Environment infrastructure management. Control and monitor your Proxmox infrastructure through an AI-powered interface.
 
 **Focused on:** Comprehensive Proxmox infrastructure management including cluster operations, VM/container lifecycle, user access control, backup/restore operations, storage management, and task monitoring.
